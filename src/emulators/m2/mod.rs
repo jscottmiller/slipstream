@@ -6,6 +6,7 @@
 pub mod ffb_plugin;
 pub mod ini;
 pub mod input_file;
+pub mod nvram;
 
 use crate::domain::emulator::{ArchiveKind, DownloadSpec, Emulator, ExtractRule};
 use crate::domain::game::GameDef;
@@ -83,6 +84,13 @@ impl Emulator for M2Emulator {
             .context("writing control config")?;
 
         ffb_plugin::apply(&dir, wheel)?;
+
+        // Seed/repair backup RAM so link-mode defaults can't demand the
+        // cabinet-link network board and boot-loop the game.
+        if let Some(image) = nvram::for_game(game.id) {
+            nvram::ensure_single_link(&dir.join("NVDATA"), game.rom_name, image)
+                .context("preparing NVRAM")?;
+        }
         Ok(())
     }
 
