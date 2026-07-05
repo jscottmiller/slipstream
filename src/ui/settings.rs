@@ -67,6 +67,16 @@ pub(crate) fn show(app: &mut SlipstreamApp, ui: &mut egui::Ui) {
                     });
                 }
             });
+            ui.horizontal(|ui| {
+                ui.label("Controller number");
+                if ui
+                    .add(egui::DragValue::new(&mut app.settings.wheel_pad).range(1..=8))
+                    .changed()
+                {
+                    dirty = true;
+                }
+                ui.weak("(raise if other game controllers enumerate before the wheel)");
+            });
         });
 
         ui.add_space(8.0);

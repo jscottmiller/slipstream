@@ -76,7 +76,7 @@ impl Emulator for M2Emulator {
         )
         .context("writing EMULATOR.INI")?;
 
-        let controls = input_file::for_game(game, wheel)
+        let controls = input_file::for_game(game, wheel, settings.wheel_pad)
             .with_context(|| format!("no control layout for {}", game.id))?;
         let cfg_dir = dir.join("CFG");
         std::fs::create_dir_all(&cfg_dir)?;

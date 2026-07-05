@@ -39,6 +39,16 @@ pub struct FfbTuning {
     pub max_force: u8,
 }
 
+/// A gear-lever position mapped to a physical control on the wheel.
+#[derive(Clone, Copy)]
+#[allow(dead_code)] // Dpad is available for profiles that shift on the hat
+pub enum GearControl {
+    /// 1-based DirectInput button number.
+    Button(u8),
+    /// D-pad (POV hat) direction.
+    Dpad(HatDir),
+}
+
 pub struct WheelProfile {
     pub id: &'static str,
     pub name: &'static str,
@@ -50,8 +60,7 @@ pub struct WheelProfile {
     pub steering: AxisBinding,
     pub accelerator: AxisBinding,
     pub brake: AxisBinding,
-    /// Gears 1-4 on the d-pad hat.
-    pub gears: [HatDir; 4],
+    pub gears: [GearControl; 4],
     /// 1-based DirectInput button numbers.
     pub btn_start: u8,
     pub btn_coin: u8,
@@ -60,27 +69,55 @@ pub struct WheelProfile {
     pub ffb: FfbTuning,
 }
 
-/// Logitech G923. Both the PlayStation and Xbox variants present the same
-/// DirectInput layout: steering on X, throttle on Y, brake on RZ, with both
-/// pedals resting at maximum (inverted). Buttons (1-based): 1=Cross/A,
-/// 2=Square/X, 3=Circle/B, 4=Triangle/Y, 9=Share/Back, 10=Options/Menu.
-pub static LOGITECH_G923: WheelProfile = WheelProfile {
+/// Logitech G923 for Xbox/PC (PID 0xC26E). Every code below was captured
+/// from m2emulator's own control-config dialog on real hardware: steering X,
+/// throttle Y (inverted), brake RZ (inverted); buttons 1=A 2=B 3=X 4=Y
+/// 5=right paddle 6=left paddle 7=Menu 8=View 9/10=rear wheel buttons.
+pub static LOGITECH_G923_XBOX: WheelProfile = WheelProfile {
     id: "logitech-g923",
-    name: "Logitech G923",
+    name: "Logitech G923 (Xbox/PC)",
     vendor_id: 0x046D,
-    product_ids: &[0xC266, 0xC267, 0xC26E], // PS, PS alt mode, Xbox/PC
+    product_ids: &[0xC26E],
     steering: AxisBinding { axis: DiAxis::X, inverted: false },
     accelerator: AxisBinding { axis: DiAxis::Y, inverted: true },
     brake: AxisBinding { axis: DiAxis::RZ, inverted: true },
-    // Clockwise from Up: d-pad Up=1st, Right=2nd, Down=3rd, Left=4th.
-    gears: [HatDir::Up, HatDir::Right, HatDir::Down, HatDir::Left],
-    btn_start: 10, // Options
-    btn_coin: 9,   // Share
-    vr_buttons: [1, 2, 3, 4], // Cross, Square, Circle, Triangle
+    // Face buttons as the H pattern: X=1st, A=2nd, Y=3rd, B=4th.
+    gears: [
+        GearControl::Button(3),
+        GearControl::Button(1),
+        GearControl::Button(4),
+        GearControl::Button(2),
+    ],
+    btn_start: 7, // Menu
+    btn_coin: 8,  // View
+    vr_buttons: [10, 6, 9, 5],
     ffb: FfbTuning { min_force: 15, max_force: 100 },
 };
 
-pub static WHEELS: &[&WheelProfile] = &[&LOGITECH_G923];
+/// Logitech G923 for PlayStation (PIDs 0xC266/0xC267). Same axes as the
+/// Xbox variant; button numbers follow the PS layout (1=Cross, 2=Square,
+/// 3=Circle, 4=Triangle, 9=Share, 10=Options). Not yet hardware-verified.
+pub static LOGITECH_G923_PS: WheelProfile = WheelProfile {
+    id: "logitech-g923-ps",
+    name: "Logitech G923 (PlayStation)",
+    vendor_id: 0x046D,
+    product_ids: &[0xC266, 0xC267],
+    steering: AxisBinding { axis: DiAxis::X, inverted: false },
+    accelerator: AxisBinding { axis: DiAxis::Y, inverted: true },
+    brake: AxisBinding { axis: DiAxis::RZ, inverted: true },
+    gears: [
+        GearControl::Button(2),
+        GearControl::Button(1),
+        GearControl::Button(4),
+        GearControl::Button(3),
+    ],
+    btn_start: 10, // Options
+    btn_coin: 9,   // Share
+    vr_buttons: [1, 2, 3, 4],
+    ffb: FfbTuning { min_force: 15, max_force: 100 },
+};
+
+pub static WHEELS: &[&WheelProfile] = &[&LOGITECH_G923_XBOX, &LOGITECH_G923_PS];
 
 pub fn find(id: &str) -> Option<&'static WheelProfile> {
     WHEELS.iter().copied().find(|w| w.id == id)

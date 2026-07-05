@@ -25,15 +25,22 @@ you own (e.g. `daytona.zip`).
   the emulator's binary `CFG/<rom>.input` control file — no in-emulator
   configuration needed.
 
-### Daytona USA control layout (G923)
+### Daytona USA control layout (G923 Xbox/PC)
 
 | Control | Binding |
 | --- | --- |
 | Steering / pedals | Wheel, throttle, brake |
-| Gears 1–4 | D-pad up / right / down / left |
-| VR view buttons | Cross, Square, Circle, Triangle |
-| Start | Options |
-| Insert coin | Share |
+| Gears 1–4 | X, A, Y, B |
+| VR view buttons | Rear buttons and paddles |
+| Start | Menu |
+| Insert coin | View |
+| Menu navigation | D-pad |
+
+The layout was captured from m2emulator's own config dialog on real hardware,
+and the generator is golden-tested against those exact bytes. If another game
+controller enumerates ahead of the wheel (some Razer keyboards register a
+phantom gamepad), fix it with Settings → Controller number, or disable the
+phantom device in Device Manager.
 
 ## Building
 

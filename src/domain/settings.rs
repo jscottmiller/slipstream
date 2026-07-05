@@ -9,6 +9,10 @@ pub struct Settings {
     /// Directory containing the user's own ROM sets (e.g. daytona.zip).
     pub rom_dir: Option<PathBuf>,
     pub wheel_id: String,
+    /// The wheel's 1-based DirectInput device number. Stays 1 unless other
+    /// game controllers (including phantom ones — some Razer keyboards
+    /// register as gamepads) enumerate ahead of the wheel.
+    pub wheel_pad: u8,
     pub fullscreen: bool,
     pub screen_width: u32,
     pub screen_height: u32,
@@ -19,6 +23,7 @@ impl Default for Settings {
         Self {
             rom_dir: None,
             wheel_id: "logitech-g923".to_string(),
+            wheel_pad: 1,
             fullscreen: true,
             screen_width: 1920,
             screen_height: 1080,
@@ -67,6 +72,8 @@ screen_height = 1080
         );
         assert_eq!(settings.wheel_id, "logitech-g923");
         assert!(settings.fullscreen);
+        // Absent in older configs; must default rather than fail.
+        assert_eq!(settings.wheel_pad, 1);
     }
 
     #[test]

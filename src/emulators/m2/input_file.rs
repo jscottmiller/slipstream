@@ -1,20 +1,25 @@
 //! Binary writer for m2emulator's per-game `CFG/<rom>.input` control files.
 //!
-//! Format (reverse-engineered; see
-//! <https://gist.github.com/andersstorhaug/38ceadbae32790c08c8b130cb4a8486b>
-//! and RetroBat's Model2 generator, which produces these files the same way):
-//! one 4-byte entry per input slot in the game's display order, followed by
-//! an 8-byte footer of analog-enable flags (also display order).
+//! Format: one 4-byte entry per input slot in the game's display order,
+//! followed by an 8-byte footer of analog-enable flags (also display order).
+//! Layout reverse-engineered from files produced by the emulator's own
+//! control-config dialog on real hardware (Logitech G923), cross-checked
+//! against RetroBat's generator and
+//! <https://gist.github.com/andersstorhaug/38ceadbae32790c08c8b130cb4a8486b>.
 //!
 //! Entry encodings:
+//! - unbound:  `[0, 0, 0, 0]`
 //! - keyboard: `[scan_code, 0, 0, 0]` (DirectInput scan code)
 //! - button:   `[button << 4, pad, 0, 0]` (1-based button, 1-based pad)
-//! - hat:      `[hat * 4 + dir, pad, 0, 0]` with dir 0=left 1=right 2=up 3=down
-//! - axis:     `[axis, invert << 4 | pad, 0x00, 0xFF]` with axis
-//!   0=X 1=Y 2=RZ 3=Z 4=RX 5=RY 6=S1 7=S2
+//! - d-pad:    `[0x0C + dir, pad, 0, 0]` with dir 0=left 1=right 2=up 3=down.
+//!   Codes 0x00-0x0B are the six axes as digital directions; the POV hat
+//!   starts at 0x0C (the gist documents the axis-direction block as "hats").
+//! - axis:     `[axis, invert << 4 | pad, min, max]` with axis
+//!   0=X 1=Y 2=RZ 3=Z 4=RX 5=RY 6=S1 7=S2 and min/max the mapped range
+//!   (0x00-0xFF for a whole axis; split ranges support combined pedals).
 
 use crate::domain::game::GameDef;
-use crate::domain::wheel::{AxisBinding, DiAxis, HatDir, WheelProfile};
+use crate::domain::wheel::{AxisBinding, DiAxis, GearControl, HatDir, WheelProfile};
 
 #[derive(Clone, Copy)]
 #[allow(dead_code)] // Key is part of the file format, unused by current layouts
@@ -24,8 +29,8 @@ pub enum Binding {
     Key(u8),
     /// 1-based pad and button numbers (this encoding fits buttons 1-15).
     Button { pad: u8, number: u8 },
-    /// Direction on the pad's first hat (the d-pad).
-    Hat { pad: u8, dir: HatDir },
+    /// Direction on the pad's POV hat (the d-pad).
+    Dpad { pad: u8, dir: HatDir },
     Axis { pad: u8, binding: AxisBinding },
 }
 
@@ -35,14 +40,14 @@ impl Binding {
             Binding::None => [0, 0, 0, 0],
             Binding::Key(scan) => [scan, 0, 0, 0],
             Binding::Button { pad, number } => [(number & 0x0F) << 4, pad & 0x0F, 0, 0],
-            Binding::Hat { pad, dir } => {
-                let code = match dir {
+            Binding::Dpad { pad, dir } => {
+                let offset = match dir {
                     HatDir::Left => 0,
                     HatDir::Right => 1,
                     HatDir::Up => 2,
                     HatDir::Down => 3,
                 };
-                [code, pad & 0x0F, 0, 0]
+                [0x0C + offset, pad & 0x0F, 0, 0]
             }
             Binding::Axis { pad, binding } => {
                 let code = match binding.axis {
@@ -61,6 +66,13 @@ impl Binding {
     }
 }
 
+fn gear_binding(pad: u8, control: GearControl) -> Binding {
+    match control {
+        GearControl::Button(number) => Binding::Button { pad, number },
+        GearControl::Dpad(dir) => Binding::Dpad { pad, dir },
+    }
+}
+
 fn encode_file(slots: &[Binding], analog_flags: &[u8; 8]) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(slots.len() * 4 + 8);
     for slot in slots {
@@ -71,48 +83,48 @@ fn encode_file(slots: &[Binding], analog_flags: &[u8; 8]) -> Vec<u8> {
 }
 
 /// Returns the control file contents for a game, or None if the game has no
-/// layout defined yet.
-pub fn for_game(game: &GameDef, wheel: &WheelProfile) -> Option<Vec<u8>> {
+/// layout defined yet. `pad` is the wheel's 1-based DirectInput device
+/// number (1 unless other game controllers enumerate ahead of the wheel).
+pub fn for_game(game: &GameDef, wheel: &WheelProfile, pad: u8) -> Option<Vec<u8>> {
     match game.id {
-        "daytona" => Some(daytona(wheel)),
+        "daytona" => Some(daytona(wheel, pad)),
         _ => None,
     }
 }
 
-/// Daytona USA: 24 input slots in the emulator's display order (layout
-/// cross-checked against RetroBat's generator):
+/// Daytona USA: 24 input slots in the emulator's display order (captured
+/// from the emulator's config dialog; matches RetroBat's generator):
 ///   0-3   menu navigation up/down/left/right
 ///   4-6   steering, accelerate, brake (analog)
 ///   7-10  gears 1-4
-///   11    gear neutral (left unbound so the d-pad latches the chosen gear)
+///   11    gear neutral (left unbound so gears latch)
 ///   12-15 VR view buttons 1-4
 ///   16    start
 ///   17    coin
 ///   18-23 service/test block, left unbound
 /// Footer: analog flags for steering/accelerate/brake.
-fn daytona(wheel: &WheelProfile) -> Vec<u8> {
-    const PAD: u8 = 1;
+fn daytona(wheel: &WheelProfile, pad: u8) -> Vec<u8> {
     let mut slots = [Binding::None; 24];
 
-    slots[0] = Binding::Hat { pad: PAD, dir: HatDir::Up };
-    slots[1] = Binding::Hat { pad: PAD, dir: HatDir::Down };
-    slots[2] = Binding::Hat { pad: PAD, dir: HatDir::Left };
-    slots[3] = Binding::Hat { pad: PAD, dir: HatDir::Right };
+    slots[0] = Binding::Dpad { pad, dir: HatDir::Up };
+    slots[1] = Binding::Dpad { pad, dir: HatDir::Down };
+    slots[2] = Binding::Dpad { pad, dir: HatDir::Left };
+    slots[3] = Binding::Dpad { pad, dir: HatDir::Right };
 
-    slots[4] = Binding::Axis { pad: PAD, binding: wheel.steering };
-    slots[5] = Binding::Axis { pad: PAD, binding: wheel.accelerator };
-    slots[6] = Binding::Axis { pad: PAD, binding: wheel.brake };
+    slots[4] = Binding::Axis { pad, binding: wheel.steering };
+    slots[5] = Binding::Axis { pad, binding: wheel.accelerator };
+    slots[6] = Binding::Axis { pad, binding: wheel.brake };
 
-    for (i, dir) in wheel.gears.iter().enumerate() {
-        slots[7 + i] = Binding::Hat { pad: PAD, dir: *dir };
+    for (i, control) in wheel.gears.iter().enumerate() {
+        slots[7 + i] = gear_binding(pad, *control);
     }
 
     for (i, button) in wheel.vr_buttons.iter().enumerate() {
-        slots[12 + i] = Binding::Button { pad: PAD, number: *button };
+        slots[12 + i] = Binding::Button { pad, number: *button };
     }
 
-    slots[16] = Binding::Button { pad: PAD, number: wheel.btn_start };
-    slots[17] = Binding::Button { pad: PAD, number: wheel.btn_coin };
+    slots[16] = Binding::Button { pad, number: wheel.btn_start };
+    slots[17] = Binding::Button { pad, number: wheel.btn_coin };
 
     encode_file(&slots, &[1, 1, 1, 0, 0, 0, 0, 0])
 }
@@ -121,56 +133,65 @@ fn daytona(wheel: &WheelProfile) -> Vec<u8> {
 mod tests {
     use super::*;
     use crate::domain::game::GAMES;
-    use crate::domain::wheel::LOGITECH_G923;
+    use crate::domain::wheel::LOGITECH_G923_XBOX;
+
+    /// Byte-for-byte contents of CFG/daytona.input as written by
+    /// m2emulator's own control-config dialog with a G923 (Xbox/PC) as the
+    /// first DirectInput device — captured 2026-07-05.
+    #[rustfmt::skip]
+    const CAPTURED_G923_XBOX: [u8; 104] = [
+        0x0E, 0x01, 0x00, 0x00, // nav up (d-pad)
+        0x0F, 0x01, 0x00, 0x00, // nav down
+        0x0C, 0x01, 0x00, 0x00, // nav left
+        0x0D, 0x01, 0x00, 0x00, // nav right
+        0x00, 0x01, 0x00, 0xFF, // steering: X
+        0x01, 0x11, 0x00, 0xFF, // accelerate: Y inverted
+        0x02, 0x11, 0x00, 0xFF, // brake: RZ inverted
+        0x30, 0x01, 0x00, 0x00, // gear 1: X
+        0x10, 0x01, 0x00, 0x00, // gear 2: A
+        0x40, 0x01, 0x00, 0x00, // gear 3: Y
+        0x20, 0x01, 0x00, 0x00, // gear 4: B
+        0x00, 0x00, 0x00, 0x00, // gear N: unbound
+        0xA0, 0x01, 0x00, 0x00, // VR 1: button 10
+        0x60, 0x01, 0x00, 0x00, // VR 2: left paddle
+        0x90, 0x01, 0x00, 0x00, // VR 3: button 9
+        0x50, 0x01, 0x00, 0x00, // VR 4: right paddle
+        0x70, 0x01, 0x00, 0x00, // start: Menu
+        0x80, 0x01, 0x00, 0x00, // coin: View
+        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00,
+        0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, // analog flags
+    ];
 
     #[test]
-    fn daytona_g923_golden_bytes() {
-        let bytes = daytona(&LOGITECH_G923);
-        assert_eq!(bytes.len(), 104, "24 slots * 4 bytes + 8-byte footer");
+    fn daytona_g923_xbox_matches_hardware_capture() {
+        assert_eq!(daytona(&LOGITECH_G923_XBOX, 1), CAPTURED_G923_XBOX);
+    }
 
-        // Menu navigation on the d-pad hat: up, down, left, right.
-        assert_eq!(&bytes[0..4], &[0x02, 0x01, 0x00, 0x00]);
-        assert_eq!(&bytes[4..8], &[0x03, 0x01, 0x00, 0x00]);
-        assert_eq!(&bytes[8..12], &[0x00, 0x01, 0x00, 0x00]);
-        assert_eq!(&bytes[12..16], &[0x01, 0x01, 0x00, 0x00]);
-
-        // Steering: X axis, pad 1, not inverted.
-        assert_eq!(&bytes[16..20], &[0x00, 0x01, 0x00, 0xFF]);
-        // Accelerator: Y axis, pad 1, inverted.
-        assert_eq!(&bytes[20..24], &[0x01, 0x11, 0x00, 0xFF]);
-        // Brake: RZ axis, pad 1, inverted.
-        assert_eq!(&bytes[24..28], &[0x02, 0x11, 0x00, 0xFF]);
-
-        // Gears 1-4 clockwise on the hat: up, right, down, left.
-        assert_eq!(&bytes[28..32], &[0x02, 0x01, 0x00, 0x00]);
-        assert_eq!(&bytes[32..36], &[0x01, 0x01, 0x00, 0x00]);
-        assert_eq!(&bytes[36..40], &[0x03, 0x01, 0x00, 0x00]);
-        assert_eq!(&bytes[40..44], &[0x00, 0x01, 0x00, 0x00]);
-        // Gear neutral unbound.
-        assert_eq!(&bytes[44..48], &[0x00, 0x00, 0x00, 0x00]);
-
-        // VR buttons 1-4 = Cross, Square, Circle, Triangle.
-        assert_eq!(&bytes[48..52], &[0x10, 0x01, 0x00, 0x00]);
-        assert_eq!(&bytes[52..56], &[0x20, 0x01, 0x00, 0x00]);
-        assert_eq!(&bytes[56..60], &[0x30, 0x01, 0x00, 0x00]);
-        assert_eq!(&bytes[60..64], &[0x40, 0x01, 0x00, 0x00]);
-
-        // Start = Options (10), Coin = Share (9).
-        assert_eq!(&bytes[64..68], &[0xA0, 0x01, 0x00, 0x00]);
-        assert_eq!(&bytes[68..72], &[0x90, 0x01, 0x00, 0x00]);
-
-        // Service/test block unbound.
-        assert!(bytes[72..96].iter().all(|&b| b == 0));
-
-        // Analog footer: steering, accelerate, brake enabled.
-        assert_eq!(&bytes[96..], &[1, 1, 1, 0, 0, 0, 0, 0]);
+    #[test]
+    fn pad_number_lands_in_every_bound_entry() {
+        let bytes = daytona(&LOGITECH_G923_XBOX, 2);
+        for slot in 0..24 {
+            let entry = &bytes[slot * 4..slot * 4 + 4];
+            if entry.iter().any(|&b| b != 0) {
+                assert_eq!(
+                    entry[1] & 0x0F,
+                    2,
+                    "slot {slot} should target pad 2: {entry:02X?}"
+                );
+            }
+        }
     }
 
     #[test]
     fn every_registered_game_has_a_layout() {
         for game in GAMES {
             assert!(
-                for_game(game, &LOGITECH_G923).is_some(),
+                for_game(game, &LOGITECH_G923_XBOX, 1).is_some(),
                 "game {} is registered but has no m2 control layout",
                 game.id
             );
