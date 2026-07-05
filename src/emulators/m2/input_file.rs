@@ -11,7 +11,7 @@
 //! - button:   `[button << 4, pad, 0, 0]` (1-based button, 1-based pad)
 //! - hat:      `[hat * 4 + dir, pad, 0, 0]` with dir 0=left 1=right 2=up 3=down
 //! - axis:     `[axis, invert << 4 | pad, 0x00, 0xFF]` with axis
-//!             0=X 1=Y 2=RZ 3=Z 4=RX 5=RY 6=S1 7=S2
+//!   0=X 1=Y 2=RZ 3=Z 4=RX 5=RY 6=S1 7=S2
 
 use crate::domain::game::GameDef;
 use crate::domain::wheel::{AxisBinding, DiAxis, HatDir, WheelProfile};

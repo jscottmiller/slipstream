@@ -90,11 +90,12 @@ pub fn find(id: &str) -> Option<&'static WheelProfile> {
 #[cfg(windows)]
 pub fn detect() -> Option<&'static WheelProfile> {
     let api = hidapi::HidApi::new().ok()?;
-    api.device_list().find_map(|dev| {
+    let found = api.device_list().find_map(|dev| {
         WHEELS.iter().copied().find(|w| {
             w.vendor_id == dev.vendor_id() && w.product_ids.contains(&dev.product_id())
         })
-    })
+    });
+    found
 }
 
 #[cfg(not(windows))]
