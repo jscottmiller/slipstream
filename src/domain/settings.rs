@@ -46,3 +46,34 @@ impl Settings {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_windows_style_config() {
+        let text = r#"
+rom_dir = 'F:\Sega Model 2'
+wheel_id = "logitech-g923"
+fullscreen = true
+screen_width = 1920
+screen_height = 1080
+"#;
+        let settings: Settings = toml::from_str(text).unwrap();
+        assert_eq!(
+            settings.rom_dir.as_deref(),
+            Some(std::path::Path::new(r"F:\Sega Model 2"))
+        );
+        assert_eq!(settings.wheel_id, "logitech-g923");
+        assert!(settings.fullscreen);
+    }
+
+    #[test]
+    fn missing_fields_fall_back_to_defaults() {
+        let settings: Settings = toml::from_str("").unwrap();
+        assert!(settings.rom_dir.is_none());
+        assert_eq!(settings.wheel_id, "logitech-g923");
+        assert_eq!((settings.screen_width, settings.screen_height), (1920, 1080));
+    }
+}
