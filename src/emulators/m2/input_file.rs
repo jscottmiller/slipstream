@@ -88,7 +88,28 @@ fn encode_file(slots: &[Binding], analog_flags: &[u8; 8]) -> Vec<u8> {
 pub fn for_game(game: &GameDef, wheel: &WheelProfile, pad: u8) -> Option<Vec<u8>> {
     match game.id {
         "daytona" => Some(daytona(wheel, pad)),
+        "srallyc" => Some(srallyc(wheel, pad)),
         _ => None,
+    }
+}
+
+/// Shared prefix of the Model 2 driving games' input display order:
+///   0-3   menu navigation up/down/left/right
+///   4-6   steering, accelerate, brake (analog)
+///   7-10  gears 1-4
+///   11    gear neutral (left unbound so gears latch)
+fn driving_common(slots: &mut [Binding], wheel: &WheelProfile, pad: u8) {
+    slots[0] = Binding::Dpad { pad, dir: HatDir::Up };
+    slots[1] = Binding::Dpad { pad, dir: HatDir::Down };
+    slots[2] = Binding::Dpad { pad, dir: HatDir::Left };
+    slots[3] = Binding::Dpad { pad, dir: HatDir::Right };
+
+    slots[4] = Binding::Axis { pad, binding: wheel.steering };
+    slots[5] = Binding::Axis { pad, binding: wheel.accelerator };
+    slots[6] = Binding::Axis { pad, binding: wheel.brake };
+
+    for (i, control) in wheel.gears.iter().enumerate() {
+        slots[7 + i] = gear_binding(pad, *control);
     }
 }
 
@@ -105,19 +126,7 @@ pub fn for_game(game: &GameDef, wheel: &WheelProfile, pad: u8) -> Option<Vec<u8>
 /// Footer: analog flags for steering/accelerate/brake.
 fn daytona(wheel: &WheelProfile, pad: u8) -> Vec<u8> {
     let mut slots = [Binding::None; 24];
-
-    slots[0] = Binding::Dpad { pad, dir: HatDir::Up };
-    slots[1] = Binding::Dpad { pad, dir: HatDir::Down };
-    slots[2] = Binding::Dpad { pad, dir: HatDir::Left };
-    slots[3] = Binding::Dpad { pad, dir: HatDir::Right };
-
-    slots[4] = Binding::Axis { pad, binding: wheel.steering };
-    slots[5] = Binding::Axis { pad, binding: wheel.accelerator };
-    slots[6] = Binding::Axis { pad, binding: wheel.brake };
-
-    for (i, control) in wheel.gears.iter().enumerate() {
-        slots[7 + i] = gear_binding(pad, *control);
-    }
+    driving_common(&mut slots, wheel, pad);
 
     for (i, button) in wheel.vr_buttons.iter().enumerate() {
         slots[12 + i] = Binding::Button { pad, number: *button };
@@ -125,6 +134,23 @@ fn daytona(wheel: &WheelProfile, pad: u8) -> Vec<u8> {
 
     slots[16] = Binding::Button { pad, number: wheel.btn_start };
     slots[17] = Binding::Button { pad, number: wheel.btn_coin };
+
+    encode_file(&slots, &[1, 1, 1, 0, 0, 0, 0, 0])
+}
+
+/// Sega Rally Championship: 21 input slots; same driving prefix as Daytona
+/// (cross-checked with RetroBat's generator), then:
+///   12    view-change button
+///   13    start
+///   14    coin
+///   15-20 service/test block, left unbound
+fn srallyc(wheel: &WheelProfile, pad: u8) -> Vec<u8> {
+    let mut slots = [Binding::None; 21];
+    driving_common(&mut slots, wheel, pad);
+
+    slots[12] = Binding::Button { pad, number: wheel.vr_buttons[0] };
+    slots[13] = Binding::Button { pad, number: wheel.btn_start };
+    slots[14] = Binding::Button { pad, number: wheel.btn_coin };
 
     encode_file(&slots, &[1, 1, 1, 0, 0, 0, 0, 0])
 }
@@ -185,6 +211,22 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn srallyc_g923_layout() {
+        let bytes = srallyc(&LOGITECH_G923_XBOX, 1);
+        assert_eq!(bytes.len(), 92, "21 slots * 4 bytes + 8-byte footer");
+
+        // Driving prefix identical to Daytona's.
+        assert_eq!(&bytes[..48], &daytona(&LOGITECH_G923_XBOX, 1)[..48]);
+        // View = button 10, start = Menu (7), coin = View (8).
+        assert_eq!(&bytes[48..52], &[0xA0, 0x01, 0x00, 0x00]);
+        assert_eq!(&bytes[52..56], &[0x70, 0x01, 0x00, 0x00]);
+        assert_eq!(&bytes[56..60], &[0x80, 0x01, 0x00, 0x00]);
+        // Service block unbound; analog footer at 84.
+        assert!(bytes[60..84].iter().all(|&b| b == 0));
+        assert_eq!(&bytes[84..], &[1, 1, 1, 0, 0, 0, 0, 0]);
     }
 
     #[test]

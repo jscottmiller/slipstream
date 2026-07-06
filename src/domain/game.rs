@@ -23,12 +23,23 @@ pub struct GameDef {
     pub emulator_id: &'static str,
 }
 
-pub static GAMES: &[GameDef] = &[GameDef {
-    id: "daytona",
-    title: "Daytona USA",
-    year: 1994,
-    manufacturer: "Sega AM2",
-    system: System::SegaModel2,
-    rom_name: "daytona",
-    emulator_id: "m2",
-}];
+pub static GAMES: &[GameDef] = &[
+    GameDef {
+        id: "daytona",
+        title: "Daytona USA",
+        year: 1994,
+        manufacturer: "Sega AM2",
+        system: System::SegaModel2,
+        rom_name: "daytona",
+        emulator_id: "m2",
+    },
+    GameDef {
+        id: "srallyc",
+        title: "Sega Rally Championship",
+        year: 1995,
+        manufacturer: "Sega AM5",
+        system: System::SegaModel2,
+        rom_name: "srallyc",
+        emulator_id: "m2",
+    },
+];
