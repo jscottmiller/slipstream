@@ -2,7 +2,9 @@
 name = "slipstream"
 version = "0.1.0"
 edition = "2021"
-description = "Cross-platform arcade game launcher"
+description = "Arcade racing launcher: pick a game, it handles the emulator, wheel, and force feedback"
+license = "MIT"
+repository = "https://github.com/jscottmiller/slipstream"
 
 [dependencies]
 anyhow = "1"

@@ -75,7 +75,7 @@ mod tests {
     #[test]
     fn parses_windows_style_config() {
         let text = r#"
-rom_dir = 'F:\Sega Model 2'
+rom_dir = 'D:\Arcade ROMs'
 wheel_id = "logitech-g923"
 fullscreen = true
 screen_width = 1920
@@ -84,7 +84,7 @@ screen_height = 1080
         let settings: Settings = toml::from_str(text).unwrap();
         assert_eq!(
             settings.rom_dir.as_deref(),
-            Some(std::path::Path::new(r"F:\Sega Model 2"))
+            Some(std::path::Path::new(r"D:\Arcade ROMs"))
         );
         assert_eq!(settings.wheel_id, "logitech-g923");
         assert!(settings.fullscreen);
