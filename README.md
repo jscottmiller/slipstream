@@ -61,7 +61,15 @@ cargo build --release --target x86_64-pc-windows-gnu
 The exe lands at `target/x86_64-pc-windows-gnu/release/slipstream.exe` and is
 fully self-contained.
 
-## Data locations (Windows)
+## Data locations
+
+**Portable mode**: if a `config.toml` sits next to `slipstream.exe`, the exe's
+folder is fully self-contained — `config.toml`, `emulators/`, `downloads/`,
+and (by convention) `roms/` all live beside the exe. A relative `rom_dir`
+in the config resolves against that folder, so the whole directory can be
+moved or copied between machines.
+
+**Otherwise (Windows)**:
 
 - Settings: `%APPDATA%\cowboyscott\slipstream\config\config.toml`
 - Emulators: `%LOCALAPPDATA%\cowboyscott\slipstream\data\emulators\`
