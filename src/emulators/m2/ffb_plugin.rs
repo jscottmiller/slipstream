@@ -4,8 +4,32 @@
 //! plugin versions keep their own defaults for everything else.
 
 use crate::domain::wheel::WheelProfile;
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use std::path::Path;
+
+const HOOK_DLL: &str = "dinput8.dll";
+const HOOK_DLL_DISABLED: &str = "dinput8.dll.disabled";
+
+/// Activate or deactivate the plugin's DirectInput hook by renaming the dll.
+/// Deactivating when no dll exists is fine (plugin simply not present);
+/// activating requires the dll to be installed under either name.
+pub fn set_active(install_dir: &Path, active: bool) -> Result<()> {
+    let live = install_dir.join(HOOK_DLL);
+    let parked = install_dir.join(HOOK_DLL_DISABLED);
+    match (active, live.exists(), parked.exists()) {
+        (true, true, _) | (false, false, _) => Ok(()),
+        (true, false, true) => std::fs::rename(&parked, &live).context("activating FFB plugin"),
+        (true, false, false) => bail!("FFB Arcade Plugin is not installed"),
+        (false, true, _) => {
+            // A stale parked copy from a previous toggle would block the
+            // rename on Windows; replace it.
+            if parked.exists() {
+                std::fs::remove_file(&parked)?;
+            }
+            std::fs::rename(&live, &parked).context("deactivating FFB plugin")
+        }
+    }
+}
 
 pub fn apply(install_dir: &Path, wheel: &WheelProfile) -> Result<()> {
     let path = install_dir.join("FFBPlugin.ini");
@@ -46,6 +70,31 @@ fn set_keys(ini: &str, overrides: &[(&str, &str)]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn set_active_toggles_hook_dll() {
+        let dir = std::env::temp_dir().join(format!("slipstream-ffb-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        // Deactivating with nothing installed is a no-op.
+        set_active(&dir, false).unwrap();
+        // Activating with nothing installed is an error.
+        assert!(set_active(&dir, true).is_err());
+
+        std::fs::write(dir.join(HOOK_DLL), b"dll").unwrap();
+        set_active(&dir, false).unwrap();
+        assert!(!dir.join(HOOK_DLL).exists());
+        assert!(dir.join(HOOK_DLL_DISABLED).exists());
+        // Idempotent.
+        set_active(&dir, false).unwrap();
+
+        set_active(&dir, true).unwrap();
+        assert!(dir.join(HOOK_DLL).exists());
+        assert!(!dir.join(HOOK_DLL_DISABLED).exists());
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 
     #[test]
     fn set_keys_patches_exact_keys_only() {

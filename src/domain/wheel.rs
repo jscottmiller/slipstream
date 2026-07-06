@@ -32,9 +32,23 @@ pub struct AxisBinding {
     pub inverted: bool,
 }
 
+/// How force feedback reaches this wheel.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum FfbMode {
+    /// m2emulator's built-in DirectInput effects (the arcade drive-board
+    /// commands: centering, clutch, roll). The FFB Arcade Plugin hook is
+    /// deactivated. Verified working on the G923, whereas the plugin's
+    /// SDL haptic path fails silently on it.
+    EmulatorNative,
+    /// FFB Arcade Plugin dinput8.dll hook with per-game memory-read
+    /// effects; emulator-native FFB is turned off to avoid double forces.
+    #[allow(dead_code)]
+    Plugin,
+}
+
 pub struct FfbTuning {
     /// Percent of force below which the wheel motor doesn't overcome its own
-    /// friction; the FFB plugin scales forces up from here.
+    /// friction; the FFB plugin scales forces up from here (Plugin mode only).
     pub min_force: u8,
     pub max_force: u8,
 }
@@ -66,6 +80,7 @@ pub struct WheelProfile {
     pub btn_coin: u8,
     /// View/VR buttons in game display order.
     pub vr_buttons: [u8; 4],
+    pub ffb_mode: FfbMode,
     pub ffb: FfbTuning,
 }
 
@@ -91,6 +106,7 @@ pub static LOGITECH_G923_XBOX: WheelProfile = WheelProfile {
     btn_start: 7, // Menu
     btn_coin: 8,  // View
     vr_buttons: [10, 6, 9, 5],
+    ffb_mode: FfbMode::EmulatorNative,
     ffb: FfbTuning { min_force: 15, max_force: 100 },
 };
 
@@ -114,6 +130,7 @@ pub static LOGITECH_G923_PS: WheelProfile = WheelProfile {
     btn_start: 10, // Options
     btn_coin: 9,   // Share
     vr_buttons: [1, 2, 3, 4],
+    ffb_mode: FfbMode::EmulatorNative,
     ffb: FfbTuning { min_force: 15, max_force: 100 },
 };
 

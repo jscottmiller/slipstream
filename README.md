@@ -24,6 +24,11 @@ you own (e.g. `daytona.zip`).
   buttons, and FFB tuning. The m2emulator integration compiles a profile into
   the emulator's binary `CFG/<rom>.input` control file — no in-emulator
   configuration needed.
+- **Force feedback** is per-profile (`FfbMode`): the G923 uses m2emulator's
+  native DirectInput effects (the arcade drive-board commands — verified on
+  hardware), because the FFB Arcade Plugin's SDL haptic path fails silently
+  on that wheel. The plugin stays installed but parked as
+  `dinput8.dll.disabled`; profiles with `FfbMode::Plugin` re-activate it.
 
 ### Daytona USA control layout (G923 Xbox/PC)
 

@@ -12,7 +12,7 @@ use crate::domain::emulator::{ArchiveKind, DownloadSpec, Emulator, ExtractRule};
 use crate::domain::game::GameDef;
 use crate::domain::paths::AppPaths;
 use crate::domain::settings::Settings;
-use crate::domain::wheel::WheelProfile;
+use crate::domain::wheel::{FfbMode, WheelProfile};
 use anyhow::{bail, Context, Result};
 use std::process::{Child, Command};
 
@@ -54,7 +54,10 @@ impl Emulator for M2Emulator {
 
     fn is_installed(&self, paths: &AppPaths) -> bool {
         let dir = self.install_dir(paths);
-        dir.join(EXE_NAME).exists() && dir.join("dinput8.dll").exists()
+        // The FFB plugin hook may be parked as dinput8.dll.disabled when a
+        // wheel profile uses the emulator's native force feedback.
+        dir.join(EXE_NAME).exists()
+            && (dir.join("dinput8.dll").exists() || dir.join("dinput8.dll.disabled").exists())
     }
 
     fn configure(
@@ -70,9 +73,10 @@ impl Emulator for M2Emulator {
             .as_ref()
             .context("ROM directory is not set (Settings → ROM directory)")?;
 
+        let native_ffb = wheel.ffb_mode == FfbMode::EmulatorNative;
         std::fs::write(
             dir.join("EMULATOR.INI"),
-            ini::emulator_ini(rom_dir, settings),
+            ini::emulator_ini(rom_dir, settings, native_ffb),
         )
         .context("writing EMULATOR.INI")?;
 
@@ -83,7 +87,13 @@ impl Emulator for M2Emulator {
         std::fs::write(cfg_dir.join(format!("{}.input", game.rom_name)), controls)
             .context("writing control config")?;
 
-        ffb_plugin::apply(&dir, wheel)?;
+        match wheel.ffb_mode {
+            FfbMode::EmulatorNative => ffb_plugin::set_active(&dir, false)?,
+            FfbMode::Plugin => {
+                ffb_plugin::set_active(&dir, true)?;
+                ffb_plugin::apply(&dir, wheel)?;
+            }
+        }
 
         // Seed/repair backup RAM so link-mode defaults can't demand the
         // cabinet-link network board and boot-loop the game.
