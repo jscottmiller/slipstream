@@ -30,7 +30,7 @@ GammaG=1.0
 GammaB=1.0
 WideScreenWindow=0
 FSAA=0
-FullMode=0
+FullMode=4
 Sound=1
 Frameskip=-1
 AutoFull={autofull}
@@ -83,6 +83,9 @@ mod tests {
         assert!(ini.contains("FullScreenWidth=2560"));
         assert!(ini.contains("FullScreenHeight=1440"));
         assert!(ini.contains("AutoFull=1"));
+        // FullMode=4 = custom fullscreen resolution; without it the emulator
+        // ignores FullScreenWidth/Height and must be set from the Video menu.
+        assert!(ini.contains("FullMode=4"));
         // Native FFB on: the emulator replays the arcade drive-board effects.
         assert!(ini.contains("EnableFF=1"));
         // Gears must latch (returning to neutral on release breaks shifting).
