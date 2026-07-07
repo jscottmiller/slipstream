@@ -6,9 +6,13 @@ control configuration for your wheel, sets up force feedback, and starts the
 game. No emulator menus, no binary config files, no test-mode dip-switch
 archaeology.
 
-**Current scope (v0.1):** Windows · Daytona USA (Sega Model 2) · Logitech G923.
-The design is registry-driven — games, emulators, wheels, and platforms are
-pluggable — so the scope grows without restructuring.
+**Current scope (v0.2):** Windows · Logitech G923 · seven games across two
+systems — Daytona USA and Sega Rally Championship (Sega Model 2, via ElSemi's
+Model 2 Emulator) and Scud Race, Daytona USA 2 (both editions), Sega Rally 2,
+and Le Mans 24 (Sega Model 3, via
+[Supermodel](https://github.com/trzy/Supermodel)). The design is
+registry-driven — games, emulators, wheels, and platforms are pluggable — so
+the scope grows without restructuring.
 
 Slipstream **never downloads ROMs**. You point it at a directory containing
 ROM sets you own.
@@ -105,6 +109,10 @@ The result is a single self-contained exe.
 
 - **ElSemi** — the Model 2 Emulator, still the definitive way to play these
   games.
+- **Bart Trzynadlowski & the Supermodel team** — the
+  [Supermodel](https://github.com/trzy/Supermodel) Sega Model 3 emulator,
+  whose plain-text config and built-in force feedback made this integration
+  a pleasure.
 - **Boomslangnz & contributors** — the
   [FFB Arcade Plugin](https://github.com/Boomslangnz/FFBArcadePlugin).
 - **SkylarZYX** — the single-cabinet Daytona NVRAM preset (from

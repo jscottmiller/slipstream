@@ -128,7 +128,7 @@ impl SlipstreamApp {
                 "no wheel profile selected",
             )?;
             emu.configure(game, &self.settings, wheel, &self.paths)?;
-            emu.launch(game, &self.paths)?;
+            emu.launch(game, &self.settings, &self.paths)?;
             Ok(())
         })();
         self.status_line = Some(match result {

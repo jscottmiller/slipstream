@@ -45,10 +45,13 @@ pub trait Emulator: Send + Sync {
         wheel: &WheelProfile,
         paths: &AppPaths,
     ) -> Result<()>;
-    fn launch(&self, game: &GameDef, paths: &AppPaths) -> Result<Child>;
+    fn launch(&self, game: &GameDef, settings: &Settings, paths: &AppPaths) -> Result<Child>;
 }
 
-pub static EMULATORS: &[&dyn Emulator] = &[&crate::emulators::m2::M2Emulator];
+pub static EMULATORS: &[&dyn Emulator] = &[
+    &crate::emulators::m2::M2Emulator,
+    &crate::emulators::supermodel::SupermodelEmulator,
+];
 
 pub fn find(id: &str) -> Option<&'static dyn Emulator> {
     EMULATORS.iter().copied().find(|e| e.id() == id)

@@ -230,11 +230,11 @@ mod tests {
     }
 
     #[test]
-    fn every_registered_game_has_a_layout() {
-        for game in GAMES {
+    fn every_m2_game_has_a_layout() {
+        for game in GAMES.iter().filter(|g| g.emulator_id == "m2") {
             assert!(
                 for_game(game, &LOGITECH_G923_XBOX, 1).is_some(),
-                "game {} is registered but has no m2 control layout",
+                "game {} targets m2 but has no control layout",
                 game.id
             );
         }

@@ -104,7 +104,7 @@ impl Emulator for M2Emulator {
         Ok(())
     }
 
-    fn launch(&self, game: &GameDef, paths: &AppPaths) -> Result<Child> {
+    fn launch(&self, game: &GameDef, _settings: &Settings, paths: &AppPaths) -> Result<Child> {
         let dir = self.install_dir(paths);
         let exe = dir.join(EXE_NAME);
         if !exe.exists() {
