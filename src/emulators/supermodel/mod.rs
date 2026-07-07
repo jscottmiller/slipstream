@@ -6,6 +6,7 @@
 //! driven by the drive-board ROM inside each game's romset.
 
 pub mod ini;
+pub mod nvram;
 
 use crate::domain::emulator::{ArchiveKind, DownloadSpec, Emulator, ExtractRule};
 use crate::domain::game::GameDef;
@@ -47,7 +48,7 @@ impl Emulator for SupermodelEmulator {
 
     fn configure(
         &self,
-        _game: &GameDef,
+        game: &GameDef,
         settings: &Settings,
         wheel: &WheelProfile,
         paths: &AppPaths,
@@ -60,6 +61,13 @@ impl Emulator for SupermodelEmulator {
             ini::supermodel_ini(wheel, settings.wheel_pad),
         )
         .context("writing Supermodel.ini")?;
+
+        // Seed single-cabinet NVRAM for games whose link-mode defaults
+        // demand the cabinet network board.
+        if let Some(image) = nvram::for_game(game.id) {
+            nvram::seed_if_missing(&dir.join("NVRAM"), game.rom_name, image)
+                .context("seeding NVRAM")?;
+        }
         Ok(())
     }
 
