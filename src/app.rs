@@ -128,7 +128,10 @@ impl SlipstreamApp {
                 "no wheel profile selected",
             )?;
             emu.configure(game, &self.settings, wheel, &self.paths)?;
-            emu.launch(game, &self.settings, &self.paths)?;
+            let child = emu.launch(game, &self.settings, &self.paths)?;
+            if emu.needs_escape_quit() {
+                crate::domain::quit_watcher::watch_escape(child);
+            }
             Ok(())
         })();
         self.status_line = Some(match result {

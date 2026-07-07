@@ -46,6 +46,12 @@ pub trait Emulator: Send + Sync {
         paths: &AppPaths,
     ) -> Result<()>;
     fn launch(&self, game: &GameDef, settings: &Settings, paths: &AppPaths) -> Result<Child>;
+    /// True when the emulator has no quit key of its own and the launcher
+    /// should close it on Escape (graceful window close while it holds the
+    /// foreground).
+    fn needs_escape_quit(&self) -> bool {
+        false
+    }
 }
 
 pub static EMULATORS: &[&dyn Emulator] = &[

@@ -104,6 +104,11 @@ impl Emulator for M2Emulator {
         Ok(())
     }
 
+    // m2emulator's own ESC only toggles fullscreen; there is no quit key.
+    fn needs_escape_quit(&self) -> bool {
+        true
+    }
+
     fn launch(&self, game: &GameDef, _settings: &Settings, paths: &AppPaths) -> Result<Child> {
         let dir = self.install_dir(paths);
         let exe = dir.join(EXE_NAME);
