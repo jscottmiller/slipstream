@@ -17,8 +17,12 @@ fn axis(pad: u8, binding: AxisBinding) -> String {
         DiAxis::Slider1 => "SLIDER1",
         DiAxis::Slider2 => "SLIDER2",
     };
-    let invert = if binding.inverted { "_INV" } else { "" };
-    format!("JOY{pad}_{name}{invert}")
+    // Inverted axes (pedals resting at maximum) must be expressed as the
+    // negative half-axis. _INV treats the whole axis as a center-resting
+    // analog, which reads a rest-at-max pedal as pinned/dead — confirmed
+    // against what `supermodel -config-inputs` itself writes for a G923.
+    let half = if binding.inverted { "_NEG" } else { "" };
+    format!("JOY{pad}_{name}{half}")
 }
 
 fn button(pad: u8, number: u8) -> String {
@@ -108,8 +112,9 @@ mod tests {
         let ini = supermodel_ini(&LOGITECH_G923_XBOX, 1);
         assert!(ini.contains("ForceFeedback = 1"));
         assert!(ini.contains(r#"InputSteering = "JOY1_XAXIS""#));
-        assert!(ini.contains(r#"InputAccelerator = "JOY1_YAXIS_INV""#));
-        assert!(ini.contains(r#"InputBrake = "JOY1_RZAXIS_INV""#));
+        // Half-axis pedals, as written by supermodel -config-inputs on a G923.
+        assert!(ini.contains(r#"InputAccelerator = "JOY1_YAXIS_NEG""#));
+        assert!(ini.contains(r#"InputBrake = "JOY1_RZAXIS_NEG""#));
         // Gears on the face buttons: X, A, Y, B.
         assert!(ini.contains(r#"InputGearShift1 = "JOY1_BUTTON3""#));
         assert!(ini.contains(r#"InputGearShift2 = "JOY1_BUTTON1""#));
