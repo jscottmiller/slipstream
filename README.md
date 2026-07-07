@@ -122,6 +122,12 @@ The result is a single self-contained exe.
 - `src/emulators/supermodel/` — Supermodel: text config generation, NVRAM
   seeding, command-line launch
 
+## Contributing
+
+New games, wheels, and emulator backends are all additive — see
+[CONTRIBUTING.md](CONTRIBUTING.md) for the recipes (including how to capture
+hardware-verified control layouts from the emulators themselves).
+
 ## Credits
 
 - **ElSemi** — the Model 2 Emulator, still the definitive way to play these
