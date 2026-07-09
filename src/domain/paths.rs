@@ -15,6 +15,10 @@ pub struct AppPaths {
     pub config_file: PathBuf,
     pub emulators_dir: PathBuf,
     pub downloads_dir: PathBuf,
+    /// User-supplied artwork for the cabinet UI: `media/<game-id>/logo.png`
+    /// and `screenshot.png` (jpg works too). Missing art gets a typographic
+    /// fallback — Slipstream never ships copyrighted game artwork.
+    pub media_dir: PathBuf,
 }
 
 impl AppPaths {
@@ -28,6 +32,7 @@ impl AppPaths {
             config_file: dirs.config_dir().join("config.toml"),
             emulators_dir: dirs.data_local_dir().join("emulators"),
             downloads_dir: dirs.data_local_dir().join("downloads"),
+            media_dir: dirs.data_local_dir().join("media"),
         })
     }
 
@@ -36,6 +41,7 @@ impl AppPaths {
             config_file: root.join("config.toml"),
             emulators_dir: root.join("emulators"),
             downloads_dir: root.join("downloads"),
+            media_dir: root.join("media"),
         }
     }
 

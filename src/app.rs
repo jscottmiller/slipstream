@@ -118,22 +118,11 @@ impl SlipstreamApp {
     }
 
     fn launch(&mut self, game: &'static GameDef) {
-        let result = (|| -> anyhow::Result<()> {
-            let emu = anyhow::Context::context(
-                emulator::find(game.emulator_id),
-                "unknown emulator for game",
-            )?;
-            let wheel = anyhow::Context::context(
-                wheel::find(&self.settings.wheel_id),
-                "no wheel profile selected",
-            )?;
-            emu.configure(game, &self.settings, wheel, &self.paths)?;
-            let child = emu.launch(game, &self.settings, &self.paths)?;
-            crate::domain::quit_watcher::watch(child, wheel, emu.needs_escape_quit());
-            Ok(())
-        })();
+        // Dropping the RunningGame handle is fine — the quit watcher keeps
+        // running detached; the desktop UI doesn't track the session.
+        let result = crate::domain::launch::launch(game, &self.settings, &self.paths);
         self.status_line = Some(match result {
-            Ok(()) => format!("Launched {} — race on!", game.title),
+            Ok(_) => format!("Launched {} — race on!", game.title),
             Err(e) => format!("Launch failed: {e:#}"),
         });
     }

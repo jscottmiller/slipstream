@@ -1,13 +1,23 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod app;
+mod cabinet;
 mod domain;
 mod emulators;
 mod ui;
 
-fn main() -> eframe::Result {
+/// Default is the fullscreen cabinet UI; `--desktop` opens the windowed
+/// egui interface for setup chores (ROM directory, wheel, resolution).
+fn main() -> anyhow::Result<()> {
     env_logger::init();
+    if std::env::args().any(|arg| arg == "--desktop") {
+        desktop()
+    } else {
+        cabinet::run()
+    }
+}
 
+fn desktop() -> anyhow::Result<()> {
     let options = eframe::NativeOptions {
         viewport: eframe::egui::ViewportBuilder::default()
             .with_title("Slipstream")
@@ -21,4 +31,5 @@ fn main() -> eframe::Result {
         options,
         Box::new(|cc| Ok(Box::new(app::SlipstreamApp::new(cc)))),
     )
+    .map_err(|e| anyhow::anyhow!("desktop UI failed: {e}"))
 }

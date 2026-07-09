@@ -1,32 +1,46 @@
 //! Quit-the-game watcher. Two signals end a session: the Escape key and the
 //! wheel's console button (Xbox/PS logo), so quitting never means reaching
-//! for the keyboard. Emulators without a quit key of their own (m2emulator's
-//! ESC only toggles fullscreen) get WM_CLOSE — a graceful close, so NVRAM
-//! and config still flush on the way out — with a hard kill only if they
-//! ignore the request. Emulators that quit on Escape natively (Supermodel)
-//! get a synthesized Escape press for the console button instead, keeping
-//! their own shutdown path in charge. Either way the watcher only acts while
-//! the launched emulator owns the foreground window.
+//! for the keyboard. Either signal sends the emulator WM_CLOSE — a graceful
+//! close, so NVRAM and config still flush on the way out — with a hard kill
+//! only if it ignores the request. (WM_CLOSE reaches SDL emulators like
+//! Supermodel as SDL_QUIT: the same clean shutdown as their own quit key.
+//! Synthesizing an Escape keypress instead was tried and never reached
+//! Supermodel's DirectInput keyboard path.) The Escape key is only watched
+//! for emulators with no quit key of their own — Supermodel handles Escape
+//! itself; m2emulator's ESC just toggles fullscreen. The watcher only acts
+//! while the launched emulator owns the foreground window.
 
 use crate::domain::wheel::WheelProfile;
 use std::process::Child;
+use std::sync::mpsc::{self, Receiver};
 
-/// Watch the launched emulator until it exits. `escape_quits` is the
-/// emulator's `needs_escape_quit()`: true selects the WM_CLOSE strategy for
-/// both signals; false leaves Escape to the emulator and only translates
-/// the console button into an Escape press.
+/// Watch the launched emulator until it exits. `watch_escape_key` is the
+/// emulator's `needs_escape_quit()`: whether the Escape key should also
+/// trigger the close (the console button always does).
+///
+/// The returned channel never carries a message; it disconnects when the
+/// emulator has exited, so callers can poll `try_recv()` for
+/// `Err(Disconnected)` (or simply drop the receiver to ignore it).
 #[cfg(windows)]
-pub fn watch(child: Child, wheel: &'static WheelProfile, escape_quits: bool) {
-    std::thread::spawn(move || windows_impl::run(child, wheel, escape_quits));
+pub fn watch(child: Child, wheel: &'static WheelProfile, watch_escape_key: bool) -> Receiver<()> {
+    let (tx, rx) = mpsc::channel();
+    std::thread::spawn(move || {
+        let _hangup = tx;
+        windows_impl::run(child, wheel, watch_escape_key);
+    });
+    rx
 }
 
 #[cfg(not(windows))]
-pub fn watch(mut child: Child, _wheel: &'static WheelProfile, _escape_quits: bool) {
-    // No watcher off-Windows; reap the child in the background so it never
-    // zombies.
+pub fn watch(mut child: Child, _wheel: &'static WheelProfile, _watch_escape_key: bool) -> Receiver<()> {
+    // No quit signals off-Windows; reap the child in the background so it
+    // never zombies, and hang up on exit like the Windows watcher.
+    let (tx, rx) = mpsc::channel();
     std::thread::spawn(move || {
+        let _hangup = tx;
         let _ = child.wait();
     });
+    rx
 }
 
 #[cfg(windows)]
@@ -41,7 +55,6 @@ mod windows_impl {
         fn GetForegroundWindow() -> isize;
         fn GetWindowThreadProcessId(hwnd: isize, pid: *mut u32) -> u32;
         fn PostMessageW(hwnd: isize, msg: u32, wparam: usize, lparam: isize) -> i32;
-        fn keybd_event(b_vk: u8, b_scan: u8, dw_flags: u32, dw_extra_info: usize);
     }
 
     #[link(name = "winmm")]
@@ -52,7 +65,6 @@ mod windows_impl {
     }
 
     const VK_ESCAPE: i32 = 0x1B;
-    const KEYEVENTF_KEYUP: u32 = 0x0002;
     const WM_CLOSE: u32 = 0x0010;
     const JOY_RETURNBUTTONS: u32 = 0x0080;
     const JOYERR_NOERROR: u32 = 0;
@@ -90,7 +102,7 @@ mod windows_impl {
         reserved2: u32,
     }
 
-    pub fn run(mut child: Child, wheel: &'static WheelProfile, escape_quits: bool) {
+    pub fn run(mut child: Child, wheel: &'static WheelProfile, watch_escape_key: bool) {
         let mut quit_button = QuitButton::new(wheel);
         loop {
             match child.try_wait() {
@@ -101,26 +113,21 @@ mod windows_impl {
             // Poll the button every tick so its edge state never goes stale,
             // but act only while the emulator owns the foreground.
             let quit = quit_button.as_mut().is_some_and(QuitButton::just_pressed)
-                || (escape_quits && escape_pressed());
+                || (watch_escape_key && escape_pressed());
 
             if quit {
                 if let Some(hwnd) = foreground_window_of(child.id()) {
-                    if escape_quits {
-                        unsafe { PostMessageW(hwnd, WM_CLOSE, 0, 0) };
-                        let deadline = Instant::now() + CLOSE_GRACE;
-                        while Instant::now() < deadline {
-                            if let Ok(Some(_)) = child.try_wait() {
-                                return;
-                            }
-                            std::thread::sleep(Duration::from_millis(100));
+                    unsafe { PostMessageW(hwnd, WM_CLOSE, 0, 0) };
+                    let deadline = Instant::now() + CLOSE_GRACE;
+                    while Instant::now() < deadline {
+                        if let Ok(Some(_)) = child.try_wait() {
+                            return;
                         }
-                        let _ = child.kill();
-                        let _ = child.wait();
-                        return;
+                        std::thread::sleep(Duration::from_millis(100));
                     }
-                    // The emulator quits on Escape itself; press it on the
-                    // console button's behalf.
-                    send_escape();
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return;
                 }
             }
 
@@ -130,16 +137,6 @@ mod windows_impl {
 
     fn escape_pressed() -> bool {
         (unsafe { GetAsyncKeyState(VK_ESCAPE) } as u16) & 0x8000 != 0
-    }
-
-    /// Tap Escape via synthesized keyboard input, which reaches the
-    /// foreground app through the normal input stream (window messages,
-    /// DirectInput, and GetAsyncKeyState alike). Held briefly so polled
-    /// input loops can't miss it between frames.
-    fn send_escape() {
-        unsafe { keybd_event(VK_ESCAPE as u8, 0, 0, 0) };
-        std::thread::sleep(Duration::from_millis(60));
-        unsafe { keybd_event(VK_ESCAPE as u8, 0, KEYEVENTF_KEYUP, 0) };
     }
 
     /// The foreground window, but only when it belongs to the given process —

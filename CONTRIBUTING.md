@@ -24,8 +24,22 @@ recipes.
 ## Dev setup
 
 Linux/WSL: stable Rust (see `rust-toolchain.toml`), plus `mingw-w64` for the
-Windows cross-build. `cargo build && cargo test` for the host; the release
-target is `x86_64-pc-windows-gnu`.
+Windows cross-build and `cmake` (SDL3 builds from source into the binary).
+The host build additionally wants SDL's Linux dependencies:
+
+```sh
+sudo apt-get install -y cmake libx11-dev libxext-dev libxrandr-dev \
+  libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev \
+  libxkbcommon-dev libdrm-dev libgbm-dev libgl1-mesa-dev libegl1-mesa-dev \
+  libasound2-dev libpulse-dev libudev-dev libdbus-1-dev libwayland-dev \
+  wayland-protocols
+```
+
+`cargo build && cargo test` for the host; the release target is
+`x86_64-pc-windows-gnu`. The cabinet UI runs under WSLg, and
+`SLIPSTREAM_SHOT=frame.png` (optionally with `SLIPSTREAM_SHOT_INDEX=n`)
+renders a few frames, saves one, and exits — visual iteration without a
+Windows round-trip.
 
 ## Adding a wheel
 
@@ -105,10 +119,10 @@ under `src/emulators/`, and register it in `EMULATORS`:
   and deterministic. Prefer plain-text formats where the emulator offers a
   choice; write binary formats with a documented encoder and golden tests.
 - `launch()` — spawn with the working directory the emulator expects.
-- `needs_escape_quit()` — return true if the emulator has no quit key of its
-  own; the launcher's quit watcher then closes it gracefully on Escape or
-  the wheel's console button (emulators that quit on Escape natively get the
-  console button translated into an Escape press instead).
+- `needs_escape_quit()` — the launcher's quit watcher closes every
+  emulator's window gracefully on the wheel's console button; return true
+  if the emulator has no quit key of its own, so the Escape key triggers
+  that close too.
 
 ## PR checklist
 

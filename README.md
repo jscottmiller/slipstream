@@ -1,10 +1,11 @@
 # Slipstream
 
-An arcade launcher for racing games. Pick a game, click **Launch** — Slipstream
-downloads the right emulator (only when you ask), generates video, controls,
-and force feedback for your wheel, and starts the game. Escape — or the Xbox
-button on the wheel — quits, every game, every emulator. No config dialogs,
-no test-menu archaeology.
+An arcade launcher for racing games. Turn it on and you're looking at a
+fullscreen carousel of your games — browse with the wheel, press A, race.
+Slipstream downloads the right emulator (only when you ask), generates video,
+controls, and force feedback for your wheel, and starts the game. Escape — or
+the Xbox button on the wheel — quits, every game, every emulator. No config
+dialogs, no test-menu archaeology.
 
 Slipstream **never downloads ROMs**. You point it at a directory containing
 ROM sets you own.
@@ -30,12 +31,31 @@ platforms are pluggable.
 
 ## Quick start
 
-1. Run `slipstream.exe` (or build it — see below).
-2. **Settings** → set your ROM directory and confirm your wheel.
-3. Pick a game → **Download & install emulator** (SHA-256-pinned, with
-   progress; each emulator installs once and serves all its games).
-4. **Launch.** **Escape or the wheel's Xbox button quits back to the
-   launcher.**
+1. Run `slipstream.exe --desktop` for first-time setup: set your ROM
+   directory, confirm your wheel, and **Download & install** each emulator
+   (SHA-256-pinned, with progress; each installs once and serves all its
+   games).
+2. Run `slipstream.exe` — the fullscreen cabinet UI. Browse with the d-pad
+   or arrow keys, launch with A or Enter. **Escape or the wheel's Xbox
+   button quits back to the carousel.**
+
+## Cabinet UI
+
+The default interface is a fullscreen carousel, rendered with SDL3 + OpenGL
+in **exclusive fullscreen at the configured game resolution** — launcher and
+game share one display mode. It shows each game's metadata plus artwork you
+supply (Slipstream never ships game art):
+
+```
+media/<game-id>/logo.png        shown in the carousel rail
+media/<game-id>/screenshot.png  full-bleed backdrop (jpg works too)
+```
+
+`media/` lives next to `config.toml` (portable mode) or in
+`%LOCALAPPDATA%\cowboyscott\slipstream`. Game ids are in
+`src/domain/game.rs` (`daytona`, `daytona2`, `srally2`, …). Games without
+art get a clean typographic panel. A good screenshot source is the games
+themselves — Supermodel's Alt+S, or any capture tool.
 
 ## Controls (G923 Xbox/PC)
 
@@ -78,11 +98,11 @@ Slipstream owns the emulator configuration and regenerates it on every launch:
   `dinput8.dll.disabled` when unused (its SDL haptic path fails silently on
   the G923).
 - **Quit on Escape or the wheel's console button**: a launcher-side watcher
-  follows every spawned emulator. Supermodel quits on Escape natively, so the
-  Xbox button becomes a synthesized Escape press; m2emulator has no quit key
-  at all, so either signal sends a graceful window close instead — NVRAM
-  still flushes on exit. Both only fire while the emulator holds the
-  foreground.
+  follows every spawned emulator. The console button sends a graceful window
+  close — NVRAM still flushes on exit, with a hard kill only if the emulator
+  ignores it. Escape is Supermodel's own quit key; m2emulator has none, so
+  the watcher handles Escape the same way there. Everything fires only while
+  the emulator holds the foreground.
 
 ## Portable mode
 
@@ -96,13 +116,17 @@ Without a local config, Slipstream uses platform directories
 
 ## Building
 
-Linux/WSL development:
+Linux/WSL development (SDL3 compiles from source, so `cmake` and the SDL
+build dependencies are needed — see CONTRIBUTING):
 
 ```sh
 cargo build && cargo test
 ```
 
-Windows release (cross-compiled from WSL; needs `mingw-w64`, and
+The cabinet UI runs under WSLg for development; without a display mode
+matching the target resolution it falls back to a plain window.
+
+Windows release (cross-compiled from WSL; needs `mingw-w64` and `cmake`, and
 `rust-toolchain.toml` pulls the `x86_64-pc-windows-gnu` target):
 
 ```sh
@@ -122,6 +146,10 @@ The result is a single self-contained exe.
   verification and zip/7z extraction
 - `src/domain/quit_watcher.rs` — quit-to-launcher on Escape or the wheel's
   console button
+- `src/domain/launch.rs` — configure-and-spawn shared by both UIs
+- `src/cabinet/` — the fullscreen carousel: SDL3 window/input, a small
+  glow/OpenGL quad renderer, glyph-atlas text (embedded Lato), artwork cache
+- `src/app.rs`, `src/ui/` — the `--desktop` egui interface for setup chores
 - `src/emulators/m2/` — Model 2 Emulator: INI writer, binary `.input`
   compiler, NVRAM seeding/repair, FFB plugin management
 - `src/emulators/supermodel/` — Supermodel: text config generation, NVRAM
