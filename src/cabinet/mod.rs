@@ -68,6 +68,16 @@ pub fn run() -> Result<()> {
         window
             .set_display_mode(mode)
             .map_err(|e| anyhow!("setting display mode: {e}"))?;
+        // SDL3 applies fullscreen mode changes asynchronously; without a
+        // sync the window silently stays a desktop-resolution fullscreen
+        // surface and the scene just scales to it.
+        if !window.sync() {
+            log::warn!("display mode sync failed; window may be at desktop resolution");
+        }
+        let (aw, ah) = window.size();
+        if (aw, ah) != (w, h) {
+            log::warn!("wanted {w}x{h} exclusive, got {aw}x{ah}");
+        }
     }
 
     let _gl_ctx = window
@@ -185,16 +195,20 @@ pub fn run() -> Result<()> {
         );
         renderer.end();
 
-        // Dev screenshot: read the back buffer before the swap makes its
-        // contents undefined.
         frame += 1;
         if let Some(path) = &shot {
-            if frame >= 5 {
+            // Shot mode never swaps: on Wayland/WSLg an unmapped surface
+            // blocks eglSwapBuffers indefinitely, and the back buffer is
+            // all we need. Frame 2 so the first frame can warm caches.
+            if frame >= 2 {
                 save_framebuffer(&renderer, dw, dh, path)?;
-                break 'main;
+                // Skip GL/SDL teardown, which can hang on an unmapped
+                // Wayland surface — this path exists for dev iteration only.
+                std::process::exit(0);
             }
+        } else {
+            window.gl_swap_window();
         }
-        window.gl_swap_window();
         // Vsync paces us when it works; this caps the WSLg/windowed case,
         // and there's no reason to spin while an emulator owns the screen.
         let idle = if running.is_some() { 100 } else { 8 };
