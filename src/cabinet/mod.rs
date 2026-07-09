@@ -106,6 +106,13 @@ pub fn run() -> Result<()> {
         }
     }
 
+    // Couch UI: the cursor stays hidden while driving with wheel or
+    // keyboard, and reappears the moment the mouse moves. Axis motion is
+    // deliberately not a hide trigger — FFB centering and pedal springs
+    // jitter the axes constantly and would fight the mouse.
+    let mouse = sdl.mouse();
+    mouse.show_cursor(false);
+
     let mut selected = 0usize;
     let mut scroll = 0.0f32;
     let mut status: Option<String> = None;
@@ -138,6 +145,12 @@ pub fn run() -> Result<()> {
                     if let Ok(stick) = joystick.open(sdl3::sys::joystick::SDL_JoystickID(*which)) {
                         sticks.push(stick);
                     }
+                }
+                Event::MouseMotion { .. } | Event::MouseButtonDown { .. } => {
+                    mouse.show_cursor(true);
+                }
+                Event::JoyButtonDown { .. } | Event::JoyHatMotion { .. } | Event::KeyDown { .. } => {
+                    mouse.show_cursor(false);
                 }
                 _ => {}
             }
