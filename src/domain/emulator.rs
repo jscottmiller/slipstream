@@ -46,9 +46,11 @@ pub trait Emulator: Send + Sync {
         paths: &AppPaths,
     ) -> Result<()>;
     fn launch(&self, game: &GameDef, settings: &Settings, paths: &AppPaths) -> Result<Child>;
-    /// True when the emulator has no quit key of its own and the launcher
-    /// should close it on Escape (graceful window close while it holds the
-    /// foreground).
+    /// True when the emulator has no quit key of its own and the launcher's
+    /// quit watcher should close its window (graceful WM_CLOSE) on Escape or
+    /// the wheel's console button. False means the emulator quits on Escape
+    /// natively; the watcher then only translates the console button into an
+    /// Escape press.
     fn needs_escape_quit(&self) -> bool {
         false
     }

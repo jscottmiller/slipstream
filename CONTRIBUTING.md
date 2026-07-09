@@ -45,7 +45,9 @@ Wheels are static `WheelProfile` entries in `src/domain/wheel.rs`:
      and decode `CFG/<rom>.input` — the format is documented at the top of
      `src/emulators/m2/input_file.rs`.
 3. **Fill the profile**: axis bindings, gear controls (buttons or d-pad),
-   start/coin, the four VR buttons, and `ffb_mode`. Start with
+   start/coin, the four VR buttons, the console button (`btn_quit` — the
+   Xbox/PS logo, which quits back to the launcher; `None` if not yet
+   captured), and `ffb_mode`. Start with
    `FfbMode::EmulatorNative` — it's verified on the G923 and needs no extra
    moving parts; `FfbMode::Plugin` activates the FFB Arcade Plugin instead.
 4. **Add the profile to `WHEELS`** and extend the golden tests: for the m2
@@ -104,7 +106,9 @@ under `src/emulators/`, and register it in `EMULATORS`:
   choice; write binary formats with a documented encoder and golden tests.
 - `launch()` — spawn with the working directory the emulator expects.
 - `needs_escape_quit()` — return true if the emulator has no quit key of its
-  own; the launcher then closes it gracefully on Escape.
+  own; the launcher's quit watcher then closes it gracefully on Escape or
+  the wheel's console button (emulators that quit on Escape natively get the
+  console button translated into an Escape press instead).
 
 ## PR checklist
 

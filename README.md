@@ -2,8 +2,9 @@
 
 An arcade launcher for racing games. Pick a game, click **Launch** — Slipstream
 downloads the right emulator (only when you ask), generates video, controls,
-and force feedback for your wheel, and starts the game. Escape quits, every
-game, every emulator. No config dialogs, no test-menu archaeology.
+and force feedback for your wheel, and starts the game. Escape — or the Xbox
+button on the wheel — quits, every game, every emulator. No config dialogs,
+no test-menu archaeology.
 
 Slipstream **never downloads ROMs**. You point it at a directory containing
 ROM sets you own.
@@ -33,7 +34,8 @@ platforms are pluggable.
 2. **Settings** → set your ROM directory and confirm your wheel.
 3. Pick a game → **Download & install emulator** (SHA-256-pinned, with
    progress; each emulator installs once and serves all its games).
-4. **Launch.** **Escape quits back to the launcher.**
+4. **Launch.** **Escape or the wheel's Xbox button quits back to the
+   launcher.**
 
 ## Controls (G923 Xbox/PC)
 
@@ -46,6 +48,7 @@ platforms are pluggable.
 | View change / handbrake (Sega Rally 2) | Rear wheel buttons |
 | Start | Menu |
 | Insert coin | View |
+| Quit to launcher | Xbox button (or Escape) |
 | Menu navigation | D-pad |
 
 Keyboard fallbacks work too (1 = start, 5 = coin, F2 = test menu). If another
@@ -74,10 +77,12 @@ Slipstream owns the emulator configuration and regenerates it on every launch:
   installed alongside for wheels that need it, parked as
   `dinput8.dll.disabled` when unused (its SDL haptic path fails silently on
   the G923).
-- **Quit on Escape**: Supermodel does this natively; m2emulator has no quit
-  key, so the launcher watches the spawned process and sends a graceful
-  window close when Escape is pressed with the emulator in the foreground —
-  NVRAM still flushes on exit.
+- **Quit on Escape or the wheel's console button**: a launcher-side watcher
+  follows every spawned emulator. Supermodel quits on Escape natively, so the
+  Xbox button becomes a synthesized Escape press; m2emulator has no quit key
+  at all, so either signal sends a graceful window close instead — NVRAM
+  still flushes on exit. Both only fire while the emulator holds the
+  foreground.
 
 ## Portable mode
 
@@ -115,8 +120,8 @@ The result is a single self-contained exe.
   layout, FFB strategy, USB ids for HID auto-detection
 - `src/domain/download.rs` — background installs with streaming SHA-256
   verification and zip/7z extraction
-- `src/domain/quit_watcher.rs` — Escape-to-quit for emulators without a
-  quit key
+- `src/domain/quit_watcher.rs` — quit-to-launcher on Escape or the wheel's
+  console button
 - `src/emulators/m2/` — Model 2 Emulator: INI writer, binary `.input`
   compiler, NVRAM seeding/repair, FFB plugin management
 - `src/emulators/supermodel/` — Supermodel: text config generation, NVRAM

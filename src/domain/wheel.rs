@@ -80,6 +80,12 @@ pub struct WheelProfile {
     pub btn_coin: u8,
     /// View/VR buttons in game display order.
     pub vr_buttons: [u8; 4],
+    /// The wheel's console button (Xbox/PS logo), 1-based DirectInput
+    /// number. The launcher's quit watcher polls it to exit the running
+    /// game — that watcher only runs on Windows builds. None until the
+    /// number has been captured for the profile.
+    #[cfg_attr(not(windows), allow(dead_code))]
+    pub btn_quit: Option<u8>,
     pub ffb_mode: FfbMode,
     pub ffb: FfbTuning,
 }
@@ -106,6 +112,7 @@ pub static LOGITECH_G923_XBOX: WheelProfile = WheelProfile {
     btn_start: 7, // Menu
     btn_coin: 8,  // View
     vr_buttons: [10, 6, 9, 5],
+    btn_quit: Some(11), // Xbox logo button, hardware-verified
     ffb_mode: FfbMode::EmulatorNative,
     ffb: FfbTuning { min_force: 15, max_force: 100 },
 };
@@ -130,6 +137,7 @@ pub static LOGITECH_G923_PS: WheelProfile = WheelProfile {
     btn_start: 10, // Options
     btn_coin: 9,   // Share
     vr_buttons: [1, 2, 3, 4],
+    btn_quit: None, // PS button number not yet captured
     ffb_mode: FfbMode::EmulatorNative,
     ffb: FfbTuning { min_force: 15, max_force: 100 },
 };
