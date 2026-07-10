@@ -76,6 +76,15 @@ InputVR4 = "{vr4}"
 InputViewChange = "{view_change}"
 InputHandBrake = "{handbrake}"
 
+; Lightgun (The Lost World): a Gun4IR in mouse mode is the system mouse,
+; so the bindings are device-generic. Trigger on left button, point
+; off-screen to reload via the right button.
+InputGunX = "MOUSE_XAXIS"
+InputGunY = "MOUSE_YAXIS"
+InputTrigger = "MOUSE_LEFT_BUTTON"
+InputOffscreen = "MOUSE_RIGHT_BUTTON"
+InputAutoTrigger = 1
+
 InputStart1 = "{start},KEY_1"
 InputCoin1 = "{coin},KEY_5"
 InputTestA = "KEY_F2"
@@ -126,6 +135,11 @@ mod tests {
         // Start = Menu (7), coin = View (8), with keyboard fallbacks.
         assert!(ini.contains(r#"InputStart1 = "JOY1_BUTTON7,KEY_1""#));
         assert!(ini.contains(r#"InputCoin1 = "JOY1_BUTTON8,KEY_5""#));
+        // Lightgun rides the mouse (Gun4IR mouse mode), device-generic.
+        assert!(ini.contains(r#"InputGunX = "MOUSE_XAXIS""#));
+        assert!(ini.contains(r#"InputGunY = "MOUSE_YAXIS""#));
+        assert!(ini.contains(r#"InputTrigger = "MOUSE_LEFT_BUTTON""#));
+        assert!(ini.contains(r#"InputOffscreen = "MOUSE_RIGHT_BUTTON""#));
     }
 
     #[test]

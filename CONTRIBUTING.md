@@ -74,10 +74,25 @@ them (`inverted` becomes an invert flag in m2's binary format but a `_NEG`
 half-axis in Supermodel's DSL — the writers own that knowledge, not the
 profile).
 
+## Adding a lightgun
+
+Guns are `GunProfile` entries in `src/domain/gun.rs` — USB vendor/product
+ids only (detection drives the cabinet rail's grouping; input reaches the
+emulators as the system mouse, so no bindings live in the profile). Capture
+the ids with the gun plugged in:
+
+```powershell
+Get-PnpDevice -PresentOnly | Where-Object { $_.InstanceId -match 'VID_' } |
+  ForEach-Object { $_.FriendlyName + '  ' + $_.InstanceId }
+```
+
 ## Adding a game
 
 1. **Registry entry** in `src/domain/game.rs`: id, title, year, manufacturer,
-   system, MAME-style parent ROM set name, and which emulator runs it.
+   system, MAME-style parent ROM set name, which emulator runs it, and its
+   `controls` kind (`Wheel` or `Lightgun`). Lightgun games generate no
+   per-game input config — both emulators aim with the mouse by default
+   (guns run in mouse mode) — so step 2 below is wheel-games-only.
 2. **Control layout**, depending on the emulator:
    - **Supermodel**: usually nothing to do — driving inputs are declared
      globally in the generated ini and Supermodel ignores what a game doesn't

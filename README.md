@@ -12,17 +12,32 @@ ROM sets you own.
 
 ## Games (v0.2)
 
-Windows · Logitech G923. Seven games across two systems:
+Windows · Logitech G923 wheel · Gun4IR lightgun. Eleven games across two
+systems:
 
-| Game | System | Emulator | ROM set(s) needed |
-| --- | --- | --- | --- |
-| Daytona USA | Model 2 | Model 2 Emulator | `daytona.zip` + `model2.zip` |
-| Sega Rally Championship | Model 2 | Model 2 Emulator | `srallyc.zip` + `model2.zip` |
-| Scud Race | Model 3 | Supermodel | `scud.zip` |
-| Le Mans 24 | Model 3 | Supermodel | `lemans24.zip` |
-| Daytona USA 2: Battle on the Edge | Model 3 | Supermodel | `daytona2.zip` |
-| Daytona USA 2: Power Edition | Model 3 | Supermodel | `dayto2pe.zip` |
-| Sega Rally 2 | Model 3 | Supermodel | `srally2.zip` |
+| Game | System | Controls | Emulator | ROM set(s) needed |
+| --- | --- | --- | --- | --- |
+| Daytona USA | Model 2 | Wheel | Model 2 Emulator | `daytona.zip` + `model2.zip` |
+| Sega Rally Championship | Model 2 | Wheel | Model 2 Emulator | `srallyc.zip` + `model2.zip` |
+| Virtua Cop | Model 2 | Lightgun | Model 2 Emulator | `vcop.zip` + `model2.zip` |
+| Virtua Cop 2 | Model 2 | Lightgun | Model 2 Emulator | `vcop2.zip` + `model2.zip` |
+| The House of the Dead | Model 2 | Lightgun | Model 2 Emulator | `hotd.zip` + `model2.zip` |
+| Scud Race | Model 3 | Wheel | Supermodel | `scud.zip` |
+| Le Mans 24 | Model 3 | Wheel | Supermodel | `lemans24.zip` |
+| Daytona USA 2: Battle on the Edge | Model 3 | Wheel | Supermodel | `daytona2.zip` |
+| Daytona USA 2: Power Edition | Model 3 | Wheel | Supermodel | `dayto2pe.zip` |
+| Sega Rally 2 | Model 3 | Wheel | Supermodel | `srally2.zip` |
+| The Lost World: Jurassic Park | Model 3 | Lightgun | Supermodel | `lostwsga.zip` |
+
+Lightgun games expect a gun in **mouse mode** (e.g. Gun4IR): both emulators
+aim with the mouse out of the box. A Gun4IR routes aim to only one output at
+a time, so set its mode to mouse in the config app, with the trigger on left
+click and a spare button on right click (forced off-screen reload). Mapping
+two more buttons to keyboard `1` and `5` covers start and coin without
+touching the keyboard. The cabinet rail groups games by control kind, sorts
+the connected controller's group first, and dims a group whose controller
+isn't detected — detection reads the USB id, which doesn't change with the
+gun's mode.
 
 MAME-style ROM sets. `model2.zip` carries the Model 2 games' shared TGP table
 ROMs; the Model 3 sets include their drive-board ROMs, which power force
@@ -71,7 +86,8 @@ themselves — Supermodel's Alt+S, or any capture tool.
 | Start | Menu |
 | Insert coin | View |
 | Quit to launcher | Xbox button (or Escape) |
-| Menu navigation | D-pad |
+| Menu navigation | D-pad (up/down jumps control groups) |
+| Menu, by mouse or gun | Click a tile to select, click again to launch; screen edges scroll |
 
 Keyboard fallbacks work too (1 = start, 5 = coin, F2 = test menu). If another
 game controller enumerates ahead of your wheel (some Razer keyboards register

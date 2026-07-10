@@ -9,7 +9,7 @@ pub mod input_file;
 pub mod nvram;
 
 use crate::domain::emulator::{ArchiveKind, DownloadSpec, Emulator, ExtractRule};
-use crate::domain::game::GameDef;
+use crate::domain::game::{ControlKind, GameDef};
 use crate::domain::paths::AppPaths;
 use crate::domain::settings::Settings;
 use crate::domain::wheel::{FfbMode, WheelProfile};
@@ -80,12 +80,21 @@ impl Emulator for M2Emulator {
         )
         .context("writing EMULATOR.INI")?;
 
-        let controls = input_file::for_game(game, wheel, settings.wheel_pad)
-            .with_context(|| format!("no control layout for {}", game.id))?;
-        let cfg_dir = dir.join("CFG");
-        std::fs::create_dir_all(&cfg_dir)?;
-        std::fs::write(cfg_dir.join(format!("{}.input", game.rom_name)), controls)
-            .context("writing control config")?;
+        match game.controls {
+            ControlKind::Wheel => {
+                let controls = input_file::for_game(game, wheel, settings.wheel_pad)
+                    .with_context(|| format!("no control layout for {}", game.id))?;
+                let cfg_dir = dir.join("CFG");
+                std::fs::create_dir_all(&cfg_dir)?;
+                std::fs::write(cfg_dir.join(format!("{}.input", game.rom_name)), controls)
+                    .context("writing control config")?;
+            }
+            // Lightgun games ride m2emulator's defaults, which already aim
+            // with the mouse (Gun4IR in mouse mode) — and the mouse `.input`
+            // encoding hasn't been captured yet. An existing `.input` is
+            // left alone so in-emulator gun calibration survives launches.
+            ControlKind::Lightgun => {}
+        }
 
         match wheel.ffb_mode {
             FfbMode::EmulatorNative => ffb_plugin::set_active(&dir, false)?,
@@ -102,6 +111,11 @@ impl Emulator for M2Emulator {
                 .context("preparing NVRAM")?;
         }
         Ok(())
+    }
+
+    // Model 2 games split shared TGP table ROMs into a companion set.
+    fn required_rom_sets(&self, game: &GameDef) -> Vec<&'static str> {
+        vec![game.rom_name, "model2"]
     }
 
     // m2emulator's own ESC only toggles fullscreen; there is no quit key.

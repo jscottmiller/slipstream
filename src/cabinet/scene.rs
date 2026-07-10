@@ -7,11 +7,55 @@ use super::media::MediaCache;
 use super::text::{self, TextRenderer};
 use crate::domain::game::GameDef;
 
+/// One rail slot: a game plus whether its control-kind group is dimmed
+/// (controller not detected while another kind is present).
+pub struct Entry {
+    pub game: &'static GameDef,
+    pub dim: bool,
+}
+
 const ACCENT: Color = Color::rgb(0.05, 0.48, 0.95); // Sega blue, near enough
 const AMBER: Color = Color::rgb(0.98, 0.75, 0.18);
 
+/// Rail geometry, shared by drawing and mouse hit-testing.
+pub struct RailLayout {
+    pub margin: f32,
+    pub slot_w: f32,
+    pub slot_h: f32,
+    pub gap: f32,
+    pub rail_y: f32,
+}
+
+pub fn rail_layout(h: f32) -> RailLayout {
+    let s = h / 1080.0;
+    RailLayout {
+        margin: 96.0 * s,
+        slot_w: 300.0 * s,
+        slot_h: 160.0 * s,
+        gap: 28.0 * s,
+        rail_y: h - 270.0 * s,
+    }
+}
+
+impl RailLayout {
+    pub fn slot_x(&self, i: usize, scroll: f32) -> f32 {
+        self.margin + (i as f32 - scroll) * (self.slot_w + self.gap)
+    }
+
+    /// The rail slot under a point, if any.
+    pub fn hit(&self, count: usize, scroll: f32, x: f32, y: f32) -> Option<usize> {
+        if y < self.rail_y || y > self.rail_y + self.slot_h {
+            return None;
+        }
+        (0..count).find(|&i| {
+            let sx = self.slot_x(i, scroll);
+            x >= sx && x <= sx + self.slot_w
+        })
+    }
+}
+
 pub struct Scene<'a> {
-    pub games: &'static [GameDef],
+    pub entries: &'a [Entry],
     pub selected: usize,
     /// Animated carousel position, in units of selection index.
     pub scroll: f32,
@@ -29,7 +73,7 @@ pub fn draw(
     h: f32,
 ) {
     let s = h / 1080.0; // reference-layout scale
-    let game = &scene.games[scene.selected];
+    let game = scene.entries[scene.selected].game;
 
     // Backdrop: the selected game's screenshot, dimmed to keep text legible;
     // a quiet gradient when there is none.
@@ -61,10 +105,11 @@ pub fn draw(
         game.title,
     );
     let meta = format!(
-        "{} · {} · {}",
+        "{} · {} · {} · {}",
         game.manufacturer,
         game.year,
-        game.system.label()
+        game.system.label(),
+        game.controls.label()
     );
     t.draw(
         r,
@@ -76,16 +121,54 @@ pub fn draw(
     );
 
     // Logo rail.
-    let slot_w = 300.0 * s;
-    let slot_h = 160.0 * s;
-    let gap = 28.0 * s;
-    let rail_y = h - 270.0 * s;
-    for (i, g) in scene.games.iter().enumerate() {
-        let x = margin + (i as f32 - scene.scroll) * (slot_w + gap);
+    let rail = rail_layout(h);
+    let (slot_w, slot_h, rail_y) = (rail.slot_w, rail.slot_h, rail.rail_y);
+    let slot_x = |i: usize| rail.slot_x(i, scene.scroll);
+
+    // Group headers: one per control-kind run, pinned to the left margin
+    // while its group occupies it, pushed out by the next group's arrival —
+    // so the current group is always labeled even mid-scroll.
+    let starts: Vec<usize> = scene
+        .entries
+        .iter()
+        .enumerate()
+        .filter(|(i, e)| *i == 0 || scene.entries[i - 1].game.controls != e.game.controls)
+        .map(|(i, _)| i)
+        .collect();
+    for (run, &start) in starts.iter().enumerate() {
+        let entry = &scene.entries[start];
+        let label = if entry.dim {
+            format!("{} — NOT DETECTED", entry.game.controls.label().to_uppercase())
+        } else {
+            entry.game.controls.label().to_uppercase()
+        };
+        let label_w = t.measure(text::BOLD, 22.0 * s, &label);
+        let x_end = starts
+            .get(run + 1)
+            .map(|&n| slot_x(n) - label_w - 40.0 * s)
+            .unwrap_or(f32::INFINITY);
+        let x = slot_x(start).max(margin).min(x_end);
+        if x < w && x_end > 0.0 {
+            t.draw(
+                r,
+                text::BOLD,
+                22.0 * s,
+                (x, rail_y - 46.0 * s),
+                Color::gray(if entry.dim { 0.35 } else { 0.55 }),
+                &label,
+            );
+        }
+    }
+
+    for (i, entry) in scene.entries.iter().enumerate() {
+        let g = entry.game;
+        let x = slot_x(i);
         if x + slot_w < -slot_w || x > w + slot_w {
             continue;
         }
+
         let is_selected = i == scene.selected;
+        let dim_factor = if entry.dim { 0.45 } else { 1.0 };
         let (slot, bright) = if is_selected {
             let grow = 0.12;
             (
@@ -95,10 +178,10 @@ pub fn draw(
                     slot_w * (1.0 + grow),
                     slot_h * (1.0 + grow),
                 ),
-                1.0,
+                dim_factor,
             )
         } else {
-            (Rect::new(x, rail_y, slot_w, slot_h), 0.55)
+            (Rect::new(x, rail_y, slot_w, slot_h), 0.55 * dim_factor)
         };
 
         if let Some(logo) = &m.art(r, g.id).logo {

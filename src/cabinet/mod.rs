@@ -10,11 +10,11 @@ mod media;
 mod scene;
 mod text;
 
-use crate::domain::game::GAMES;
+use crate::domain::game::{ControlKind, GAMES};
 use crate::domain::launch::{self, RunningGame};
 use crate::domain::paths::AppPaths;
 use crate::domain::settings::Settings;
-use crate::domain::wheel;
+use crate::domain::{gun, wheel};
 use anyhow::{anyhow, bail, Context, Result};
 use sdl3::event::Event;
 use sdl3::video::GLProfile;
@@ -113,6 +113,13 @@ pub fn run() -> Result<()> {
     let mouse = sdl.mouse();
     mouse.show_cursor(false);
 
+    // Rail catalog: connected controller's group sorts first; a group whose
+    // controller is absent (while another kind is present) renders dimmed.
+    let mut presence = detect_presence();
+    let mut entries = build_entries(presence);
+    let mut last_scan = Instant::now();
+    let mut last_edge_step = Instant::now();
+
     let mut selected = 0usize;
     let mut scroll = 0.0f32;
     let mut status: Option<String> = None;
@@ -164,7 +171,9 @@ pub fn run() -> Result<()> {
                 Event::MouseMotion { .. } | Event::MouseButtonDown { .. } => {
                     mouse.show_cursor(true);
                 }
-                Event::JoyButtonDown { .. } | Event::JoyHatMotion { .. } | Event::KeyDown { .. } => {
+                Event::JoyButtonDown { .. }
+                | Event::JoyHatMotion { .. }
+                | Event::KeyDown { .. } => {
                     mouse.show_cursor(false);
                 }
                 _ => {}
@@ -174,11 +183,33 @@ pub fn run() -> Result<()> {
             if running.is_some() {
                 continue;
             }
-            match input::map(&event, wheel) {
+            // Mouse (and therefore lightgun) drives the rail directly:
+            // click a tile to select it, click the selected tile to launch.
+            let mut nav = input::map(&event, wheel);
+            if let Event::MouseButtonDown {
+                mouse_btn: sdl3::mouse::MouseButton::Left,
+                x,
+                y,
+                ..
+            } = &event
+            {
+                let (_, dh) = window.size();
+                let rail = scene::rail_layout(dh as f32);
+                if let Some(i) = rail.hit(entries.len(), scroll, *x, *y) {
+                    if i == selected {
+                        nav = Some(input::Nav::Select);
+                    } else {
+                        selected = i;
+                    }
+                }
+            }
+            match nav {
                 Some(input::Nav::Prev) => selected = selected.saturating_sub(1),
-                Some(input::Nav::Next) => selected = (selected + 1).min(GAMES.len() - 1),
+                Some(input::Nav::Next) => selected = (selected + 1).min(entries.len() - 1),
+                Some(input::Nav::PrevGroup) => selected = group_jump(&entries, selected, -1),
+                Some(input::Nav::NextGroup) => selected = group_jump(&entries, selected, 1),
                 Some(input::Nav::Select) => {
-                    match launch::launch(&GAMES[selected], &settings, &paths) {
+                    match launch::launch(entries[selected].game, &settings, &paths) {
                         Ok(game) => {
                             status = None;
                             running = Some(game);
@@ -201,6 +232,50 @@ pub fn run() -> Result<()> {
             }
         }
 
+        // Edge-of-screen scrolling for mouse/gun navigation — only while
+        // the cursor is visible, so an idle wheel or holstered gun can't
+        // creep the rail.
+        if running.is_none() && mouse.is_cursor_showing() {
+            let state = events.mouse_state();
+            let (dw, _) = window.size();
+            let edge = dw as f32 * 0.05;
+            let dir = if state.x() < edge {
+                -1i32
+            } else if state.x() > dw as f32 - edge {
+                1
+            } else {
+                0
+            };
+            if dir != 0 && last_edge_step.elapsed() > Duration::from_millis(300) {
+                last_edge_step = Instant::now();
+                selected = if dir < 0 {
+                    selected.saturating_sub(1)
+                } else {
+                    (selected + 1).min(entries.len() - 1)
+                };
+            }
+        }
+
+        // HID re-scan keeps the rail's grouping live as controllers come
+        // and go; mouse-mode guns never fire SDL joystick events, so this
+        // is the only signal. Skipped while the emulator owns the screen.
+        if running.is_none() && last_scan.elapsed() > Duration::from_secs(3) {
+            last_scan = Instant::now();
+            let now = detect_presence();
+            if now != presence {
+                if now.gun && !presence.gun {
+                    if let Some(g) = gun::detect() {
+                        status = Some(format!("Detected {}", g.name));
+                    }
+                }
+                presence = now;
+                let keep = entries[selected].game.id;
+                entries = build_entries(presence);
+                selected = entries.iter().position(|e| e.game.id == keep).unwrap_or(0);
+                scroll = selected as f32;
+            }
+        }
+
         let dt = last_frame.elapsed().as_secs_f32().min(0.1);
         last_frame = Instant::now();
         scroll += (selected as f32 - scroll) * (dt * 10.0).min(1.0);
@@ -212,7 +287,7 @@ pub fn run() -> Result<()> {
             &mut fonts,
             &mut art,
             &scene::Scene {
-                games: GAMES,
+                entries: &entries,
                 selected,
                 scroll,
                 status: status.as_deref(),
@@ -243,6 +318,69 @@ pub fn run() -> Result<()> {
         std::thread::sleep(Duration::from_millis(idle));
     }
     Ok(())
+}
+
+/// Which controller kinds are physically present (best-effort HID scan).
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct Presence {
+    wheel: bool,
+    gun: bool,
+}
+
+impl Presence {
+    fn has(self, kind: ControlKind) -> bool {
+        match kind {
+            ControlKind::Wheel => self.wheel,
+            ControlKind::Lightgun => self.gun,
+        }
+    }
+
+    fn any(self) -> bool {
+        self.wheel || self.gun
+    }
+}
+
+fn detect_presence() -> Presence {
+    Presence {
+        wheel: wheel::detect().is_some(),
+        gun: gun::detect().is_some(),
+    }
+}
+
+/// The rail in display order: the connected kind's group first, then the
+/// rest; a group is dimmed when its controller is missing while another is
+/// present (no detection at all dims nothing — that's WSLg, hubs asleep,
+/// or a machine we can't scan, and hiding the library would be worse).
+fn build_entries(presence: Presence) -> Vec<scene::Entry> {
+    let mut kinds = [ControlKind::Wheel, ControlKind::Lightgun];
+    if presence.gun && !presence.wheel {
+        kinds.swap(0, 1);
+    }
+    kinds
+        .iter()
+        .flat_map(|&kind| {
+            GAMES
+                .iter()
+                .filter(move |g| g.controls == kind)
+                .map(move |game| scene::Entry {
+                    game,
+                    dim: presence.any() && !presence.has(kind),
+                })
+        })
+        .collect()
+}
+
+/// First index of the previous/next control-kind group, clamped at the ends.
+fn group_jump(entries: &[scene::Entry], selected: usize, dir: i32) -> usize {
+    let starts: Vec<usize> = entries
+        .iter()
+        .enumerate()
+        .filter(|(i, e)| *i == 0 || entries[i - 1].game.controls != e.game.controls)
+        .map(|(i, _)| i)
+        .collect();
+    let current = starts.iter().rposition(|&s| s <= selected).unwrap_or(0);
+    let target = (current as i32 + dir).clamp(0, starts.len() as i32 - 1) as usize;
+    starts[target]
 }
 
 fn save_framebuffer(r: &gfx::Renderer, w: u32, h: u32, path: &std::path::Path) -> Result<()> {

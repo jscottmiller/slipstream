@@ -230,8 +230,14 @@ mod tests {
     }
 
     #[test]
-    fn every_m2_game_has_a_layout() {
-        for game in GAMES.iter().filter(|g| g.emulator_id == "m2") {
+    fn every_m2_wheel_game_has_a_layout() {
+        // Lightgun games are exempt by design: they ride m2emulator's
+        // defaults (mouse aim) and no `.input` is generated for them.
+        use crate::domain::game::ControlKind;
+        for game in GAMES
+            .iter()
+            .filter(|g| g.emulator_id == "m2" && g.controls == ControlKind::Wheel)
+        {
             assert!(
                 for_game(game, &LOGITECH_G923_XBOX, 1).is_some(),
                 "game {} targets m2 but has no control layout",

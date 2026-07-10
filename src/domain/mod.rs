@@ -3,6 +3,7 @@ pub mod emulator;
 pub mod launch;
 pub mod quit_watcher;
 pub mod game;
+pub mod gun;
 pub mod paths;
 pub mod settings;
 pub mod status;

@@ -45,6 +45,13 @@ pub trait Emulator: Send + Sync {
         wheel: &WheelProfile,
         paths: &AppPaths,
     ) -> Result<()>;
+    /// ROM set zip stems (without `.zip`) a game needs in the ROM
+    /// directory. Checked before launch so a missing set is a friendly
+    /// status line, not an emulator error wall.
+    fn required_rom_sets(&self, game: &GameDef) -> Vec<&'static str> {
+        vec![game.rom_name]
+    }
+
     fn launch(&self, game: &GameDef, settings: &Settings, paths: &AppPaths) -> Result<Child>;
     /// The launcher's quit watcher gracefully closes every emulator's window
     /// on the wheel's console button. Return true when the emulator has no

@@ -30,6 +30,26 @@ pub fn launch(
 ) -> Result<RunningGame> {
     let emu = emulator::find(game.emulator_id).context("unknown emulator for game")?;
     let wheel = wheel::find(&settings.wheel_id).context("no wheel profile selected")?;
+
+    // Pre-flight the ROM sets: a missing zip becomes a one-line status
+    // instead of the emulator's own error wall.
+    if let Some(rom_dir) = &settings.rom_dir {
+        let missing: Vec<String> = emu
+            .required_rom_sets(game)
+            .iter()
+            .map(|stem| format!("{stem}.zip"))
+            .filter(|zip| !rom_dir.join(zip).exists())
+            .collect();
+        if !missing.is_empty() {
+            anyhow::bail!(
+                "missing ROM set{}: {} (in {})",
+                if missing.len() > 1 { "s" } else { "" },
+                missing.join(", "),
+                rom_dir.display()
+            );
+        }
+    }
+
     emu.configure(game, settings, wheel, paths)?;
     let child = emu.launch(game, settings, paths)?;
     let watcher = quit_watcher::watch(child, wheel, emu.needs_escape_quit());

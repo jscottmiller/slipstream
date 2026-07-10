@@ -11,6 +11,9 @@ use sdl3::keyboard::Keycode;
 pub enum Nav {
     Prev,
     Next,
+    /// Jump to the previous/next control-kind group in the rail.
+    PrevGroup,
+    NextGroup,
     Select,
     Back,
 }
@@ -25,6 +28,8 @@ pub fn map(event: &Event, wheel: Option<&WheelProfile>) -> Option<Nav> {
             // Held arrows repeat (fast browsing); Enter must not.
             Keycode::Left => Some(Nav::Prev),
             Keycode::Right => Some(Nav::Next),
+            Keycode::Up => Some(Nav::PrevGroup),
+            Keycode::Down => Some(Nav::NextGroup),
             Keycode::Return if !repeat => Some(Nav::Select),
             Keycode::Escape if !repeat => Some(Nav::Back),
             _ => None,
@@ -32,6 +37,8 @@ pub fn map(event: &Event, wheel: Option<&WheelProfile>) -> Option<Nav> {
         Event::JoyHatMotion { state, .. } => match state {
             HatState::Left => Some(Nav::Prev),
             HatState::Right => Some(Nav::Next),
+            HatState::Up => Some(Nav::PrevGroup),
+            HatState::Down => Some(Nav::NextGroup),
             _ => None,
         },
         Event::JoyButtonDown { button_idx, .. } => {
