@@ -37,7 +37,9 @@ platforms are pluggable.
    games).
 2. Run `slipstream.exe` — the fullscreen cabinet UI. Browse with the d-pad
    or arrow keys, launch with A or Enter. **Escape or the wheel's Xbox
-   button quits back to the carousel.**
+   button quits back to the carousel.** Alt+Enter switches between the
+   cabinet and desktop interfaces; **Settings → Interface** picks which one
+   opens by default (`--cabinet` / `--desktop` always force one).
 
 ## Cabinet UI
 

@@ -3,6 +3,16 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+/// Which interface `slipstream.exe` opens with no arguments; `--cabinet`
+/// and `--desktop` override, and Alt+Enter switches at runtime.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum DefaultUi {
+    #[default]
+    Cabinet,
+    Desktop,
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
@@ -16,6 +26,7 @@ pub struct Settings {
     pub fullscreen: bool,
     pub screen_width: u32,
     pub screen_height: u32,
+    pub default_ui: DefaultUi,
 }
 
 impl Default for Settings {
@@ -27,6 +38,7 @@ impl Default for Settings {
             fullscreen: true,
             screen_width: 1920,
             screen_height: 1080,
+            default_ui: DefaultUi::Cabinet,
         }
     }
 }
@@ -98,6 +110,16 @@ screen_height = 1080
         assert!(settings.rom_dir.is_none());
         assert_eq!(settings.wheel_id, "logitech-g923");
         assert_eq!((settings.screen_width, settings.screen_height), (1920, 1080));
+        // Absent in configs predating the cabinet UI.
+        assert_eq!(settings.default_ui, DefaultUi::Cabinet);
+    }
+
+    #[test]
+    fn default_ui_roundtrips_as_lowercase() {
+        let settings: Settings = toml::from_str("default_ui = \"desktop\"").unwrap();
+        assert_eq!(settings.default_ui, DefaultUi::Desktop);
+        let text = toml::to_string_pretty(&settings).unwrap();
+        assert!(text.contains("default_ui = \"desktop\""), "got: {text}");
     }
 
     #[test]

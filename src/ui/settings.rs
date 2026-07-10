@@ -1,4 +1,5 @@
 use crate::app::SlipstreamApp;
+use crate::domain::settings::DefaultUi;
 use crate::domain::wheel;
 use eframe::egui;
 
@@ -76,6 +77,27 @@ pub(crate) fn show(app: &mut SlipstreamApp, ui: &mut egui::Ui) {
                     dirty = true;
                 }
                 ui.weak("(raise if other game controllers enumerate before the wheel)");
+            });
+        });
+
+        ui.add_space(8.0);
+
+        ui.group(|ui| {
+            ui.label(egui::RichText::new("Interface").strong());
+            ui.horizontal(|ui| {
+                ui.label("Start in");
+                for (value, label) in [
+                    (DefaultUi::Cabinet, "Cabinet (fullscreen)"),
+                    (DefaultUi::Desktop, "Desktop"),
+                ] {
+                    if ui
+                        .selectable_value(&mut app.settings.default_ui, value, label)
+                        .changed()
+                    {
+                        dirty = true;
+                    }
+                }
+                ui.weak("(Alt+Enter switches anytime)");
             });
         });
 

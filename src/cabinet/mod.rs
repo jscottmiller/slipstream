@@ -146,6 +146,21 @@ pub fn run() -> Result<()> {
                         sticks.push(stick);
                     }
                 }
+                Event::KeyDown {
+                    keycode: Some(sdl3::keyboard::Keycode::Return),
+                    keymod,
+                    repeat: false,
+                    ..
+                } if keymod
+                    .intersects(sdl3::keyboard::Mod::LALTMOD | sdl3::keyboard::Mod::RALTMOD) =>
+                {
+                    // Alt+Enter switches to the desktop UI (and back there,
+                    // to here) — but not while an emulator owns the screen.
+                    if running.is_none() {
+                        crate::spawn_counterpart(true)?;
+                        break 'main;
+                    }
+                }
                 Event::MouseMotion { .. } | Event::MouseButtonDown { .. } => {
                     mouse.show_cursor(true);
                 }

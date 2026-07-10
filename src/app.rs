@@ -130,6 +130,14 @@ impl SlipstreamApp {
 
 impl eframe::App for SlipstreamApp {
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Alt+Enter hands off to the fullscreen cabinet UI (mirrored there).
+        if ctx.input(|i| i.modifiers.alt && i.key_pressed(egui::Key::Enter)) {
+            match crate::spawn_counterpart(false) {
+                Ok(()) => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
+                Err(e) => self.status_line = Some(format!("Could not open cabinet UI: {e:#}")),
+            }
+        }
+
         self.drain_install_events();
         if !self.installs.is_empty() {
             ctx.request_repaint_after(Duration::from_millis(100));
