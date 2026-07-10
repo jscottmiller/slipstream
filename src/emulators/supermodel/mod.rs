@@ -64,9 +64,8 @@ impl Emulator for SupermodelEmulator {
 
         // Seed single-cabinet NVRAM for games whose link-mode defaults
         // demand the cabinet network board.
-        if let Some(image) = nvram::for_game(game.id) {
-            nvram::seed_if_missing(&dir.join("NVRAM"), game.rom_name, image)
-                .context("seeding NVRAM")?;
+        if let Some(seed) = nvram::for_game(game.id) {
+            nvram::seed_if_missing(&dir.join("NVRAM"), &seed).context("seeding NVRAM")?;
         }
         Ok(())
     }
