@@ -122,7 +122,10 @@ impl SlipstreamApp {
         // running detached; the desktop UI doesn't track the session.
         let result = crate::domain::launch::launch(game, &self.settings, &self.paths);
         self.status_line = Some(match result {
-            Ok(_) => format!("Launched {} — race on!", game.title),
+            Ok(running) => match running.warning {
+                Some(warning) => warning,
+                None => format!("Launched {} — race on!", game.title),
+            },
             Err(e) => format!("Launch failed: {e:#}"),
         });
     }

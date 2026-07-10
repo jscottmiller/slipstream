@@ -1,8 +1,8 @@
-//! Pre-seeded NVRAM for Model 3 games whose factory defaults block solo
-//! play: their game assignments default to a linked-cabinet Link ID, making
-//! the game demand the network board ("NETWORK BOARD NOT PRESENT"). Each
-//! embedded image was captured from a real machine after setting Game
-//! Assignments → Link ID → SINGLE via the test menu.
+//! Pre-seeded NVRAM for Model 3 games whose factory defaults get in the
+//! way: linked-cabinet Link IDs that demand the network board ("NETWORK
+//! BOARD NOT PRESENT") on the racers, and uncalibrated guns on the
+//! shooters. Each embedded image was captured from a real machine after
+//! fixing the relevant settings via the test menu.
 //!
 //! NVRAM files are named after the game Supermodel identifies *inside* the
 //! ROM zip, which can differ from our rom_name — scud.zip holds the
@@ -38,6 +38,11 @@ pub fn for_game(game_id: &str) -> Option<Seed> {
             "scudau",
             include_bytes!("../../../assets/supermodel/scudau.nvram.nv"),
         ),
+        // Gun calibration from the service menu, rather than link mode.
+        "lostwsga" => (
+            "lostwsga",
+            include_bytes!("../../../assets/supermodel/lostwsga.nvram.nv"),
+        ),
         _ => return None,
     };
     Some(Seed { nv_name, image })
@@ -63,6 +68,7 @@ mod tests {
             ("daytona2", "daytona2"),
             ("dayto2pe", "dayto2pe"),
             ("scud", "scudau"),
+            ("lostwsga", "lostwsga"),
         ] {
             let seed = for_game(game_id).unwrap();
             assert_eq!(seed.nv_name, nv_name);

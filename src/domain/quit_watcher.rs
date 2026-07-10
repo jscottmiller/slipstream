@@ -22,25 +22,46 @@ use std::sync::mpsc::{self, Receiver};
 /// emulator has exited, so callers can poll `try_recv()` for
 /// `Err(Disconnected)` (or simply drop the receiver to ignore it).
 #[cfg(windows)]
-pub fn watch(child: Child, wheel: &'static WheelProfile, watch_escape_key: bool) -> Receiver<()> {
+pub fn watch(
+    child: Child,
+    companions: Vec<Child>,
+    wheel: &'static WheelProfile,
+    watch_escape_key: bool,
+) -> Receiver<()> {
     let (tx, rx) = mpsc::channel();
     std::thread::spawn(move || {
         let _hangup = tx;
         windows_impl::run(child, wheel, watch_escape_key);
+        reap_companions(companions);
     });
     rx
 }
 
 #[cfg(not(windows))]
-pub fn watch(mut child: Child, _wheel: &'static WheelProfile, _watch_escape_key: bool) -> Receiver<()> {
+pub fn watch(
+    mut child: Child,
+    companions: Vec<Child>,
+    _wheel: &'static WheelProfile,
+    _watch_escape_key: bool,
+) -> Receiver<()> {
     // No quit signals off-Windows; reap the child in the background so it
     // never zombies, and hang up on exit like the Windows watcher.
     let (tx, rx) = mpsc::channel();
     std::thread::spawn(move || {
         let _hangup = tx;
         let _ = child.wait();
+        reap_companions(companions);
     });
     rx
+}
+
+/// Companion helpers (DemulShooter) have no quit signal of their own; once
+/// the emulator is gone they are killed outright.
+fn reap_companions(companions: Vec<Child>) {
+    for mut companion in companions {
+        let _ = companion.kill();
+        let _ = companion.wait();
+    }
 }
 
 #[cfg(windows)]

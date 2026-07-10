@@ -211,7 +211,7 @@ pub fn run() -> Result<()> {
                 Some(input::Nav::Select) => {
                     match launch::launch(entries[selected].game, &settings, &paths) {
                         Ok(game) => {
-                            status = None;
+                            status = game.warning.clone();
                             running = Some(game);
                         }
                         Err(e) => status = Some(format!("Launch failed: {e:#}")),

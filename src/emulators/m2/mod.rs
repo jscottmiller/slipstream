@@ -18,6 +18,52 @@ use std::process::{Child, Command};
 
 pub const EXE_NAME: &str = "emulator_multicpu.exe";
 
+/// Whether this process runs with administrator rights (DemulShooter's
+/// hook silently fails without them).
+#[cfg(windows)]
+fn process_is_elevated() -> bool {
+    #[link(name = "advapi32")]
+    extern "system" {
+        fn OpenProcessToken(process: isize, access: u32, token: *mut isize) -> i32;
+        fn GetTokenInformation(
+            token: isize,
+            class: i32,
+            info: *mut core::ffi::c_void,
+            len: u32,
+            ret_len: *mut u32,
+        ) -> i32;
+    }
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn GetCurrentProcess() -> isize;
+        fn CloseHandle(handle: isize) -> i32;
+    }
+    const TOKEN_QUERY: u32 = 0x0008;
+    const TOKEN_ELEVATION: i32 = 20;
+    unsafe {
+        let mut token = 0isize;
+        if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) == 0 {
+            return false;
+        }
+        let mut elevation: u32 = 0;
+        let mut len: u32 = 0;
+        let ok = GetTokenInformation(
+            token,
+            TOKEN_ELEVATION,
+            &mut elevation as *mut u32 as *mut _,
+            4,
+            &mut len,
+        );
+        CloseHandle(token);
+        ok != 0 && elevation != 0
+    }
+}
+
+#[cfg(not(windows))]
+fn process_is_elevated() -> bool {
+    true // not meaningful off-Windows; never warn
+}
+
 pub struct M2Emulator;
 
 static DOWNLOADS: &[DownloadSpec] = &[
@@ -37,7 +83,20 @@ static DOWNLOADS: &[DownloadSpec] = &[
         kind: ArchiveKind::SevenZ,
         extract: ExtractRule::Subdir("M2Emulator"),
     },
+    // Lightgun companion: hooks the emulator and writes gun coordinates
+    // (including true offscreen values) straight into game memory — the
+    // only way to get offscreen reload, since a window-bound mouse can
+    // never produce out-of-bounds coordinates once a game is calibrated.
+    DownloadSpec {
+        label: "DemulShooter v17.5",
+        url: "https://github.com/argonlefou/DemulShooter/releases/download/v17.5/DemulShooter_v17.5.zip",
+        sha256: "792f03fcde4e827b82ca2dfad2a5d4a25316c53fe219eff77398e57d239eeba7",
+        kind: ArchiveKind::Zip,
+        extract: ExtractRule::All,
+    },
 ];
+
+const DEMULSHOOTER_EXE: &str = "DemulShooter.exe";
 
 impl Emulator for M2Emulator {
     fn id(&self) -> &'static str {
@@ -56,8 +115,11 @@ impl Emulator for M2Emulator {
         let dir = self.install_dir(paths);
         // The FFB plugin hook may be parked as dinput8.dll.disabled when a
         // wheel profile uses the emulator's native force feedback.
+        // DemulShooter arrived later: older installs show as not-installed
+        // so the desktop UI offers the (idempotent) re-install that adds it.
         dir.join(EXE_NAME).exists()
             && (dir.join("dinput8.dll").exists() || dir.join("dinput8.dll.disabled").exists())
+            && dir.join(DEMULSHOOTER_EXE).exists()
     }
 
     fn configure(
@@ -74,9 +136,10 @@ impl Emulator for M2Emulator {
             .context("ROM directory is not set (Settings → ROM directory)")?;
 
         let native_ffb = wheel.ffb_mode == FfbMode::EmulatorNative;
+        let lightgun = game.controls == ControlKind::Lightgun;
         std::fs::write(
             dir.join("EMULATOR.INI"),
-            ini::emulator_ini(rom_dir, settings, native_ffb),
+            ini::emulator_ini(rom_dir, settings, native_ffb, lightgun),
         )
         .context("writing EMULATOR.INI")?;
 
@@ -110,12 +173,61 @@ impl Emulator for M2Emulator {
             nvram::ensure_single_link(&dir.join("NVDATA"), game.rom_name, image)
                 .context("preparing NVRAM")?;
         }
+        // Gun games get hardware-captured gun calibration on first run.
+        if let Some(image) = nvram::calibration_seed(game.id) {
+            nvram::seed_if_missing(&dir.join("NVDATA"), game.rom_name, image)
+                .context("seeding gun calibration")?;
+        }
         Ok(())
     }
 
     // Model 2 games split shared TGP table ROMs into a companion set.
     fn required_rom_sets(&self, game: &GameDef) -> Vec<&'static str> {
         vec![game.rom_name, "model2"]
+    }
+
+    /// DemulShooter for gun games: it waits for the emulator process and
+    /// hooks it, feeding raw gun coordinates directly — offscreen reload
+    /// included. Gun devices are bound once per machine via its own
+    /// DemulShooter_GUI.exe; absent or unconfigured it just does nothing
+    /// and the game falls back to plain mouse aim.
+    /// DemulShooter's process hook needs administrator rights (its manifest
+    /// is asInvoker, so it inherits ours) and fails silently without them —
+    /// aim still works via plain mouse, only the right-click reload
+    /// disappears. Surface that instead of letting it look like a mystery.
+    fn launch_warning(&self, game: &GameDef, paths: &AppPaths) -> Option<String> {
+        if game.controls != ControlKind::Lightgun
+            || !self.install_dir(paths).join(DEMULSHOOTER_EXE).exists()
+        {
+            return None;
+        }
+        (!process_is_elevated()).then(|| {
+            "gun reload needs admin: run Slipstream as administrator".to_string()
+        })
+    }
+
+    fn launch_companions(&self, game: &GameDef, paths: &AppPaths) -> Vec<Child> {
+        if game.controls != ControlKind::Lightgun {
+            return Vec::new();
+        }
+        let dir = self.install_dir(paths);
+        let exe = dir.join(DEMULSHOOTER_EXE);
+        if !exe.exists() {
+            log::warn!("DemulShooter not installed; offscreen reload unavailable");
+            return Vec::new();
+        }
+        match Command::new(&exe)
+            .arg("-target=model2")
+            .arg(format!("-rom={}", game.rom_name))
+            .current_dir(&dir)
+            .spawn()
+        {
+            Ok(child) => vec![child],
+            Err(e) => {
+                log::warn!("starting DemulShooter: {e}");
+                Vec::new()
+            }
+        }
     }
 
     // m2emulator's own ESC only toggles fullscreen; there is no quit key.

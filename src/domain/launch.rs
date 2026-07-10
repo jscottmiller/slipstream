@@ -12,6 +12,8 @@ use std::sync::mpsc::{Receiver, TryRecvError};
 /// A launched game. Dropping it detaches; the quit watcher keeps running.
 pub struct RunningGame {
     pub game: &'static GameDef,
+    /// Non-fatal problem worth showing (e.g. gun reload needs admin).
+    pub warning: Option<String>,
     watcher: Receiver<()>,
 }
 
@@ -51,7 +53,15 @@ pub fn launch(
     }
 
     emu.configure(game, settings, wheel, paths)?;
+    // Companions first, so process hooks are already waiting when the
+    // emulator starts; the quit watcher reaps them after it exits.
+    let warning = emu.launch_warning(game, paths);
+    let companions = emu.launch_companions(game, paths);
     let child = emu.launch(game, settings, paths)?;
-    let watcher = quit_watcher::watch(child, wheel, emu.needs_escape_quit());
-    Ok(RunningGame { game, watcher })
+    let watcher = quit_watcher::watch(child, companions, wheel, emu.needs_escape_quit());
+    Ok(RunningGame {
+        game,
+        warning,
+        watcher,
+    })
 }

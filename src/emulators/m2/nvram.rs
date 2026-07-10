@@ -16,6 +16,15 @@ use std::path::Path;
 
 static DAYTONA_SINGLE: &[u8] = include_bytes!("../../../assets/m2/daytona.nvram.dat");
 
+/// Gun games ship uncalibrated: the game's stored gun calibration doesn't
+/// match the coordinates m2emulator feeds it, so aim drifts wide toward
+/// the screen edges. These images were captured after running each game's
+/// GUN ADJUSTMENT (test menu) with the DemulShooter hook active — the
+/// input range is identical on every install, so one calibration fits all.
+static VCOP_CALIBRATED: &[u8] = include_bytes!("../../../assets/m2/vcop.calibrated.dat");
+static VCOP2_CALIBRATED: &[u8] = include_bytes!("../../../assets/m2/vcop2.calibrated.dat");
+static HOTD_CALIBRATED: &[u8] = include_bytes!("../../../assets/m2/hotd.calibrated.dat");
+
 const LINK_MODE_OFFSETS: [usize; 2] = [0x0B, 0x8B];
 const LINK_SINGLE: u8 = 0x00;
 
@@ -24,6 +33,27 @@ pub fn for_game(game_id: &str) -> Option<&'static [u8]> {
         "daytona" => Some(DAYTONA_SINGLE),
         _ => None,
     }
+}
+
+pub fn calibration_seed(game_id: &str) -> Option<&'static [u8]> {
+    match game_id {
+        "vcop" => Some(VCOP_CALIBRATED),
+        "vcop2" => Some(VCOP2_CALIBRATED),
+        "hotd" => Some(HOTD_CALIBRATED),
+        _ => None,
+    }
+}
+
+/// Seed only when the file is missing — a user's own calibration pass and
+/// high scores always win over the embedded image.
+pub fn seed_if_missing(nvdata_dir: &Path, rom_name: &str, image: &[u8]) -> Result<()> {
+    let path = nvdata_dir.join(format!("{rom_name}.DAT"));
+    if path.exists() {
+        return Ok(());
+    }
+    std::fs::create_dir_all(nvdata_dir)?;
+    std::fs::write(&path, image).with_context(|| format!("writing {}", path.display()))?;
+    Ok(())
 }
 
 /// Ensure the game's NVRAM is configured for single-cabinet play. Writes the
@@ -88,6 +118,38 @@ mod tests {
         let path = dir.join("daytona.DAT");
         std::fs::write(&path, DAYTONA_SINGLE).unwrap();
         assert!(is_single_link(&path));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn embedded_calibrations_are_wellformed() {
+        // Valid m2 NVDATA containers: a zip with SRAM (and here EEPROM).
+        for (game, image) in [
+            ("vcop", VCOP_CALIBRATED),
+            ("vcop2", VCOP2_CALIBRATED),
+            ("hotd", HOTD_CALIBRATED),
+        ] {
+            let mut archive =
+                zip::ZipArchive::new(std::io::Cursor::new(image)).expect("valid zip");
+            assert!(archive.by_name("SRAM").is_ok(), "{game} missing SRAM");
+        }
+    }
+
+    #[test]
+    fn calibration_seed_only_when_missing() {
+        let dir = std::env::temp_dir().join(format!("slipstream-nvcal-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+
+        seed_if_missing(&dir, "vcop", VCOP_CALIBRATED).unwrap();
+        assert_eq!(std::fs::read(dir.join("vcop.DAT")).unwrap(), VCOP_CALIBRATED);
+
+        std::fs::write(dir.join("vcop.DAT"), b"user calibration").unwrap();
+        seed_if_missing(&dir, "vcop", VCOP_CALIBRATED).unwrap();
+        assert_eq!(
+            std::fs::read(dir.join("vcop.DAT")).unwrap(),
+            b"user calibration"
+        );
+
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

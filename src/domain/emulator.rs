@@ -52,6 +52,21 @@ pub trait Emulator: Send + Sync {
         vec![game.rom_name]
     }
 
+    /// Helper processes to run alongside a game (e.g. DemulShooter for
+    /// lightgun titles). Spawned before the emulator so hooks are waiting
+    /// when it starts; the quit watcher kills them once the emulator exits.
+    /// Missing helpers are not an error — the game launches degraded.
+    fn launch_companions(&self, _game: &GameDef, _paths: &AppPaths) -> Vec<Child> {
+        Vec::new()
+    }
+
+    /// A non-fatal problem the player should see (shown as the launcher's
+    /// status line while the game runs) — e.g. a companion that will not
+    /// work in the current environment.
+    fn launch_warning(&self, _game: &GameDef, _paths: &AppPaths) -> Option<String> {
+        None
+    }
+
     fn launch(&self, game: &GameDef, settings: &Settings, paths: &AppPaths) -> Result<Child>;
     /// The launcher's quit watcher gracefully closes every emulator's window
     /// on the wheel's console button. Return true when the emulator has no

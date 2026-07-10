@@ -34,7 +34,17 @@ aim with the mouse out of the box. A Gun4IR routes aim to only one output at
 a time, so set its mode to mouse in the config app, with the trigger on left
 click and a spare button on right click (forced off-screen reload). Mapping
 two more buttons to keyboard `1` and `5` covers start and coin without
-touching the keyboard. The cabinet rail groups games by control kind, sorts
+touching the keyboard.
+
+Model 2 gun games additionally launch **DemulShooter** (installed with the
+emulator), which hooks the process and feeds gun input directly. Under
+DemulShooter, **reload is the right mouse button** — not an offscreen shot —
+so enable the Gun4IR's offscreen-button mode (offscreen trigger pulls send
+right-click) for the authentic point-away-and-fire reload. One-time setup
+per machine: run `emulators/m2/DemulShooter_GUI.exe`, bind your gun for
+player 1, then calibrate each game normally in its service menu. Without
+DemulShooter the games still run on plain mouse aim (no reliable reload).
+The cabinet rail groups games by control kind, sorts
 the connected controller's group first, and dims a group whose controller
 isn't detected — detection reads the USB id, which doesn't change with the
 gun's mode.
