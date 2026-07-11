@@ -43,6 +43,10 @@ pub fn for_game(game_id: &str) -> Option<Seed> {
             "lostwsga",
             include_bytes!("../../../assets/supermodel/lostwsga.nvram.nv"),
         ),
+        "lamachin" => (
+            "lamachin",
+            include_bytes!("../../../assets/supermodel/lamachin.nvram.nv"),
+        ),
         _ => return None,
     };
     Some(Seed { nv_name, image })
@@ -69,6 +73,7 @@ mod tests {
             ("dayto2pe", "dayto2pe"),
             ("scud", "scudau"),
             ("lostwsga", "lostwsga"),
+            ("lamachin", "lamachin"),
         ] {
             let seed = for_game(game_id).unwrap();
             assert_eq!(seed.nv_name, nv_name);

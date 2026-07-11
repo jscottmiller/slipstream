@@ -12,7 +12,7 @@ ROM sets you own.
 
 ## Games (v0.2)
 
-Windows · Logitech G923 wheel · Gun4IR lightgun. Eleven games across two
+Windows · Logitech G923 wheel · Gun4IR lightgun. Thirteen games across two
 systems:
 
 | Game | System | Controls | Emulator | ROM set(s) needed |
@@ -22,12 +22,14 @@ systems:
 | Virtua Cop | Model 2 | Lightgun | Model 2 Emulator | `vcop.zip` + `model2.zip` |
 | Virtua Cop 2 | Model 2 | Lightgun | Model 2 Emulator | `vcop2.zip` + `model2.zip` |
 | The House of the Dead | Model 2 | Lightgun | Model 2 Emulator | `hotd.zip` + `model2.zip` |
+| Gunblade NY | Model 2 | Lightgun | Model 2 Emulator | `gunblade.zip` + `model2.zip` |
 | Scud Race | Model 3 | Wheel | Supermodel | `scud.zip` |
 | Le Mans 24 | Model 3 | Wheel | Supermodel | `lemans24.zip` |
 | Daytona USA 2: Battle on the Edge | Model 3 | Wheel | Supermodel | `daytona2.zip` |
 | Daytona USA 2: Power Edition | Model 3 | Wheel | Supermodel | `dayto2pe.zip` |
 | Sega Rally 2 | Model 3 | Wheel | Supermodel | `srally2.zip` |
 | The Lost World: Jurassic Park | Model 3 | Lightgun | Supermodel | `lostwsga.zip` |
+| L.A. Machineguns: Rage of the Machines | Model 3 | Lightgun | Supermodel | `lamachin.zip` |
 
 Lightgun games expect a gun in **mouse mode** (e.g. Gun4IR): both emulators
 aim with the mouse out of the box. A Gun4IR routes aim to only one output at

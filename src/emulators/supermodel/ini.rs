@@ -85,6 +85,13 @@ InputTrigger = "MOUSE_LEFT_BUTTON"
 InputOffscreen = "MOUSE_RIGHT_BUTTON"
 InputAutoTrigger = 1
 
+; Analog gun (L.A. Machineguns): the turret-style games read a separate
+; input set; same mouse, no reload mechanic.
+InputAnalogGunX = "MOUSE_XAXIS"
+InputAnalogGunY = "MOUSE_YAXIS"
+InputAnalogTriggerLeft = "MOUSE_LEFT_BUTTON"
+InputAnalogTriggerRight = "MOUSE_RIGHT_BUTTON"
+
 InputStart1 = "{start},KEY_1"
 InputCoin1 = "{coin},KEY_5"
 InputTestA = "KEY_F2"
@@ -140,6 +147,9 @@ mod tests {
         assert!(ini.contains(r#"InputGunY = "MOUSE_YAXIS""#));
         assert!(ini.contains(r#"InputTrigger = "MOUSE_LEFT_BUTTON""#));
         assert!(ini.contains(r#"InputOffscreen = "MOUSE_RIGHT_BUTTON""#));
+        // Turret games (L.A. Machineguns) read the analog-gun input set.
+        assert!(ini.contains(r#"InputAnalogGunX = "MOUSE_XAXIS""#));
+        assert!(ini.contains(r#"InputAnalogTriggerLeft = "MOUSE_LEFT_BUTTON""#));
     }
 
     #[test]

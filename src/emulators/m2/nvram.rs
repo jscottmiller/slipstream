@@ -24,6 +24,7 @@ static DAYTONA_SINGLE: &[u8] = include_bytes!("../../../assets/m2/daytona.nvram.
 static VCOP_CALIBRATED: &[u8] = include_bytes!("../../../assets/m2/vcop.calibrated.dat");
 static VCOP2_CALIBRATED: &[u8] = include_bytes!("../../../assets/m2/vcop2.calibrated.dat");
 static HOTD_CALIBRATED: &[u8] = include_bytes!("../../../assets/m2/hotd.calibrated.dat");
+static GUNBLADE_CALIBRATED: &[u8] = include_bytes!("../../../assets/m2/gunblade.calibrated.dat");
 
 const LINK_MODE_OFFSETS: [usize; 2] = [0x0B, 0x8B];
 const LINK_SINGLE: u8 = 0x00;
@@ -40,6 +41,9 @@ pub fn calibration_seed(game_id: &str) -> Option<&'static [u8]> {
         "vcop" => Some(VCOP_CALIBRATED),
         "vcop2" => Some(VCOP2_CALIBRATED),
         "hotd" => Some(HOTD_CALIBRATED),
+        // Analog minigun: uncalibrated pots read ~3x overscaled on X with
+        // an inverted Y; the test menu's sampling adjustment fixes both.
+        "gunblade" => Some(GUNBLADE_CALIBRATED),
         _ => None,
     }
 }
@@ -128,6 +132,7 @@ mod tests {
             ("vcop", VCOP_CALIBRATED),
             ("vcop2", VCOP2_CALIBRATED),
             ("hotd", HOTD_CALIBRATED),
+            ("gunblade", GUNBLADE_CALIBRATED),
         ] {
             let mut archive =
                 zip::ZipArchive::new(std::io::Cursor::new(image)).expect("valid zip");
