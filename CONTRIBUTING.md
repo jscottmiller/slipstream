@@ -118,7 +118,9 @@ Get-PnpDevice -PresentOnly | Where-Object { $_.InstanceId -match 'VID_' } |
    `model2.zip`) and pre-rename MAME file names — document any such
    requirement in the README's games table.
 5. **Update the README** games table, and test on hardware before calling
-   the defaults verified.
+   the defaults verified. The game's id doubles as its artwork folder name
+   (`media/<game-id>/` — expectations are documented in the README's
+   Artwork section); art is user-supplied and never committed.
 
 ## Adding an emulator
 
