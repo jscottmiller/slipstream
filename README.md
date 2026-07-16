@@ -11,6 +11,8 @@ no test-menu archaeology.
 Slipstream **never downloads ROMs**. You point it at a directory containing
 ROM sets you own.
 
+![The cabinet UI: a fullscreen carousel with the wheel-game rail selected on Daytona USA](docs/cabinet.png)
+
 ## Games
 
 Windows · Logitech G923 wheel · Gun4IR lightgun. Thirteen games across two
