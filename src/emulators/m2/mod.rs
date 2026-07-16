@@ -18,52 +18,6 @@ use std::process::{Child, Command};
 
 pub const EXE_NAME: &str = "emulator_multicpu.exe";
 
-/// Whether this process runs with administrator rights (DemulShooter's
-/// hook silently fails without them).
-#[cfg(windows)]
-fn process_is_elevated() -> bool {
-    #[link(name = "advapi32")]
-    extern "system" {
-        fn OpenProcessToken(process: isize, access: u32, token: *mut isize) -> i32;
-        fn GetTokenInformation(
-            token: isize,
-            class: i32,
-            info: *mut core::ffi::c_void,
-            len: u32,
-            ret_len: *mut u32,
-        ) -> i32;
-    }
-    #[link(name = "kernel32")]
-    extern "system" {
-        fn GetCurrentProcess() -> isize;
-        fn CloseHandle(handle: isize) -> i32;
-    }
-    const TOKEN_QUERY: u32 = 0x0008;
-    const TOKEN_ELEVATION: i32 = 20;
-    unsafe {
-        let mut token = 0isize;
-        if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) == 0 {
-            return false;
-        }
-        let mut elevation: u32 = 0;
-        let mut len: u32 = 0;
-        let ok = GetTokenInformation(
-            token,
-            TOKEN_ELEVATION,
-            &mut elevation as *mut u32 as *mut _,
-            4,
-            &mut len,
-        );
-        CloseHandle(token);
-        ok != 0 && elevation != 0
-    }
-}
-
-#[cfg(not(windows))]
-fn process_is_elevated() -> bool {
-    true // not meaningful off-Windows; never warn
-}
-
 pub struct M2Emulator;
 
 static DOWNLOADS: &[DownloadSpec] = &[
@@ -190,22 +144,10 @@ impl Emulator for M2Emulator {
     /// hooks it, feeding raw gun coordinates directly — offscreen reload
     /// included. Gun devices are bound once per machine via its own
     /// DemulShooter_GUI.exe; absent or unconfigured it just does nothing
-    /// and the game falls back to plain mouse aim.
-    /// DemulShooter's process hook needs administrator rights (its manifest
-    /// is asInvoker, so it inherits ours) and fails silently without them —
-    /// aim still works via plain mouse, only the right-click reload
-    /// disappears. Surface that instead of letting it look like a mystery.
-    fn launch_warning(&self, game: &GameDef, paths: &AppPaths) -> Option<String> {
-        if game.controls != ControlKind::Lightgun
-            || !self.install_dir(paths).join(DEMULSHOOTER_EXE).exists()
-        {
-            return None;
-        }
-        (!process_is_elevated()).then(|| {
-            "gun reload needs admin: run Slipstream as administrator".to_string()
-        })
-    }
-
+    /// and the game falls back to plain mouse aim. Slipstream spawns it at
+    /// the same privilege level as the emulator, so no elevation is needed
+    /// despite DemulShooter's blanket run-as-admin guidance (hardware-
+    /// verified unelevated; the guidance targets elevated emulators).
     fn launch_companions(&self, game: &GameDef, paths: &AppPaths) -> Vec<Child> {
         if game.controls != ControlKind::Lightgun {
             return Vec::new();

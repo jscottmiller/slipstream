@@ -68,11 +68,10 @@ pre-seeded from real-hardware captures). One-time steps per machine:
    Model 2 gun games launch it automatically — it hooks the emulator and
    feeds gun input directly, which is what makes reload work. Its reload
    contract is the right mouse button, so the Gun4IR setting above gives
-   the authentic point-away-and-fire reload.
-3. **Run Slipstream as administrator** (shortcut → Properties →
-   Compatibility). DemulShooter's process hook silently does nothing
-   without elevation; Slipstream detects this and says so in the status
-   line rather than leaving reload mysteriously dead.
+   the authentic point-away-and-fire reload. (DemulShooter's own docs
+   recommend running as administrator; because Slipstream launches it and
+   the emulator at the same privilege level, elevation hasn't been needed
+   in practice — but it's the first thing to try if reload ever fails.)
 
 Supermodel gun games (The Lost World, L.A. Machineguns) need none of the
 DemulShooter steps — Supermodel reads the mouse natively, with off-screen
